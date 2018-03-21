@@ -8,6 +8,9 @@ import subprocess
 import concurrent.futures
 from Bio.Align.Applications import MafftCommandline
 
+"""
+Class to store relations and metadata of a gene
+"""
 class Gene:
 
     def __init__(self, name, genome, orthogroup):
@@ -37,6 +40,9 @@ class Gene:
         orthogroup.genes.append(self)
 
 
+"""
+Class to store relations and metadata of a genome
+"""
 class Genome:
 
     def __init__(self, name):
@@ -50,6 +56,9 @@ class Genome:
         gene.genome = self
 
 
+"""
+Class to store relations and metadata of an orthogroup
+"""
 class Orthogroup:
 
     def __init__(self, name):
@@ -77,7 +86,7 @@ class Taxon:
 Method to parse an "orthogroups.csv" file
 Returns an object of class Taxon  
 """
-def parse_orthofinder(din_orthofinder):
+def parse_orthogroups(din_orthofinder):
     taxon = Taxon()
     hin_orthofinder_csv = open(din_orthofinder + "/Orthogroups.csv", "r")
     genome_names = next(hin_orthofinder_csv)
@@ -106,10 +115,8 @@ def select_orthogroups(orthogroups, n_genes_min):
             orthogroups_selected.append(orthogroup)
     return(orthogroups_selected)
 
-def align_orthogroup(orthogroup, din_orthogroups, dout_alignments):
-    fin_orthogroup = din_orthogroups + "/" + orthogroup.name + ".fa"
-    fout_alignment = dout_alignments + "/" + orthogroup.name + ".fasta"
-    mafft_cline = MafftCommandline(input = fin_orthogroup)
+def align(fin_sequences, fout_alignment):
+    mafft_cline = MafftCommandline(input = fin_sequences)
     stdout, stderr = mafft_cline()
     with open(fout_alignment, "w") as hout_alignment:
         hout_alignment.write(stdout)
@@ -117,51 +124,57 @@ def align_orthogroup(orthogroup, din_orthogroups, dout_alignments):
 def align_orthogroups(orthogroups, din_orthogroups, dout_alignments):
     os.makedirs(dout_alignments, exist_ok = True)
     n = len(orthogroups)
+    fins_sequences = [din_orthogroups + "/" + orthogroup.name + ".fa"
+        for orthogroup in orthogroups]
+    fouts_alignments = [dout_alignments + "/" + orthogroup.name + ".fasta"
+        for orthogroup in orthogroups]
     with concurrent.futures.ProcessPoolExecutor() as executor:
         executor.map(align_orthogroup, 
-            orthogroups, [din_orthogroups] * n, [dout_alignments] * n
+            fins_sequences, fouts_alignments
         )
 
-def construct_profile(orthogroup, din_alignments, dout_profiles):
-    fin_alignment = din_alignments + "/" + orthogroup.name + ".fasta"
-    fout_profile = dout_profiles + "/" + orthogroup.name + ".hmm"
-    subprocess.run(
+def construct_profile(fin_alignment, fout_profile):
+   subprocess.run(
         ["hmmbuild", fout_profile, fin_alignment],
         stdout = subprocess.PIPE,
     )
  
-def construct_hmmer_db(orthogroups, din_alignments, dout_profiles, dout_hmmer_db):
+def construct_profile_db(orthogroups, din_alignments, dout_profiles, dout_profile_db):
+    fins_alignments = [din_alignments + "/" + orthogroup.name + ".fasta"
+        for orthogroup in orthogroups]
+    fouts_profiles = [dout_profiles + "/" + orthogroup.name + ".hmm"
+        for orthogroup in orthogroups]
     os.makedirs(dout_profiles, exist_ok = True)
-    os.makedirs(dout_hmmer_db, exist_ok = True)
+    os.makedirs(dout_profile_db, exist_ok = True)
     n = len(orthogroups)
     with concurrent.futures.ProcessPoolExecutor() as executor:
         executor.map(construct_profile, 
-            orthogroups, [din_alignments] * n, [dout_profiles] * n
+            fins_alignments, fouts_profiles
         )
-    fout_hmmer_db = dout_hmmer_db + "/profiles"
+    fout_profile_db = dout_profile_db + "/profiles"
     subprocess.run(
-        " ".join(["cat", dout_profiles + "/*.hmm", ">", fout_hmmer_db]), 
+        " ".join(["cat", dout_profiles + "/*.hmm", ">", fout_profile_db]), 
         shell = True
     )
     subprocess.run(
-        ["hmmpress", fout_hmmer_db],
+        ["hmmpress", fout_profile_db],
         stdout = subprocess.PIPE
     )
 
-def run_hmmer(fin_sequences, fin_hmm_db, fout_scores):
+def run_hmmscan(fin_sequences, fin_profile_db, fout_scores):
     subprocess.run(
         ["hmmscan", "--domtblout", fout_scores, 
-            fin_hmm_db, fin_sequences],
+            fin_profile_db, fin_sequences],
         stdout = subprocess.PIPE
     )
    
-def perform_hmmscan(fins_sequences, fin_hmm_db, fout_scores):
+def run_hmmscan_parallel(fins_sequences, fin_hmm_db, fout_scores):
     dout_scores_temp = os.path.dirname(fout_scores) + "/scores_temp"
     os.mkdir(dout_scores_temp)
     n = len(fins_sequences)
     fouts_scores_temp = ["%s/%i.tsv" % (dout_scores_temp, i) for i in range(n)]
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(run_hmmer, 
+        executor.map(run_hmmscan, 
             fins_sequences, 
             [fin_hmm_db] * n, 
             fouts_scores_temp
@@ -172,7 +185,7 @@ def perform_hmmscan(fins_sequences, fin_hmm_db, fout_scores):
             shell = True
         )
         subprocess.run(" ".join(["rm", fout_scores_temp]), shell = True)
-    # to do: savely remove dout_scores_temp
+    subprocess.run(" ".join(["rm -r", dout_scores_temp]), shell = True)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -180,76 +193,48 @@ def parse_arguments():
         "task",
         help = "the task you want to perform",
         choices = [
-            "select_seeds",
-            "construct_orthogroups_seeds",
-            "construct_profiles_seeds",
-            "scan_seeds",
-            "scan_genomes",
-            "collect_core_fastas"
+            "construct_profile_db",
+            "get_core_genes"
         ]
     )
     parser.add_argument(
-        "--din_orthofinder_seeds",
+        "--din_orthofinder",
         help = "the input directory with orthofinder files"
     )
     parser.add_argument(
-        "--dout_profiles_seeds",
-        help = "the output directory for the hmm profiles of the seed orthogroups"
+        "--dout_profile_db",
+        help = "the output directory for the hmm profiles of the orthogroups"
     )
-    parser.add_argument(
-        "--din_queries",
-        help = "the input directory with fasta file(s) containing query sequences"
-    )
-    parser.add_argument(
-        "--din_hmmer_db",
-        help = "the input directory with hmmer database files (.h3f, .h3i, .h3m and .h3p)"
-    )
-    parser.add_argument(
-        "--fout_scores",
-        help = "the output file to store hmmer scores"
-    )
-    args = parser.parse_args()
+   args = parser.parse_args()
     return(args)
 
 if __name__ == "__main__":
+
     print("\nthis is raccoon, version unknown")
     args = parse_arguments()
-    if args.task == "select_seeds":
-        print("seed selection is not yet implemented")
-    elif args.task == "construct_orthogroups_seeds":
-        print("construction of seed orthogroups is not yet implemented")
-    elif args.task == "construct_profiles_seeds":
-        if args.din_orthofinder_seeds is None:
-            print("argument --din_orthofinder_seeds is required")
-        elif args.dout_profiles_seeds is None:
-            print("argument --dout_profiles_seeds is required")
+
+    if args.task == "construct_profile_db":
+        if args.din_orthofinder is None:
+            print("argument --din_orthofinder is required")
+        elif args.dout_profile_db is None:
+            print("argument --dout_profile_db is required")
         else:
-            print("starting profile construction on seeds")
-            taxon = parse_orthofinder(args.din_orthofinder_seeds)
+            print("starting profile construction on orthofinder output")
+            taxon = parse_orthogroups(args.din_orthofinder)
             orthogroups = select_orthogroups(taxon.orthogroups, 10)
             print("found %i orthogroups" % (len(orthogroups)))
-            d_alignments = args.dout_profiles_seeds + "/alignments"
-            d_profiles = args.dout_profiles_seeds + "/profiles"
-            d_hmmer_db = args.dout_profiles_seeds + "/hmmer_db"
-            din_orthogroups = args.din_orthofinder_seeds + "/Orthologues_*/Sequences"
-            din_orthogroups = glob.glob(din_orthogroups)[0]
-            align_orthogroups(orthogroups, din_orthogroups, d_alignments)
-            construct_hmmer_db(orthogroups, d_alignments, d_profiles, d_hmmer_db)
-            fins_orthofinder_seeds = [din_orthogroups + "/" + 
-                orthogroup.name + ".fa" for orthogroup in orthogroups]
-            # f_seed_scores = args.dout_profiles_seeds + "/seed_scores.tsv"
-            # perform_hmmscan(fins_orthofinder_seeds, d_hmmer_db + "/profiles", f_seed_scores)
-    elif args.task == "scan_genomes":
-        if args.din_queries is None:
-            print("argument --din_queries is required")
-        elif args.din_hmmer_db is None:
-            print("argument --din_hmmer_db is required")
-        elif args.fout_scores is None:
-            print("argument --fout_scores is required")
-        else:
-            fins_queries = [os.path.join(args.din_queries, f) 
-                for f in os.listdir(args.din_queries)]
-            perform_hmmscan(fins_queries, args.din_hmmer_db, args.fout_scores)
+            d_alignments = args.dout_profile_db + "/alignments"
+            d_profiles = args.dout_profile_db + "/profiles"
+            d_profile_db = args.dout_profile_db + "/hmmer_db"
+            din_orthofinder = args.din_orthofinder + "/Orthologues_*/Sequences"
+            din_orthofinder = glob.glob(din_orthofinder)[0]
+            align_orthogroups(orthogroups, din_orthogrofinder, d_alignments)
+            construct_profile_db(orthogroups, d_alignments, d_profiles, d_profile_db)
+
+    elif args.task == "get_core_genes":
+        print("this task is not yet implemented")
+
     else:
         print("this task is not yet implemented")
+
     print("")
