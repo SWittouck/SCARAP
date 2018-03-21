@@ -6,6 +6,9 @@ import os
 import glob
 import subprocess
 import concurrent.futures
+import shutil
+import re
+from random import randrange
 from Bio.Align.Applications import MafftCommandline
 
 """
@@ -170,7 +173,7 @@ def run_hmmscan(fin_sequences, fin_profile_db, fout_scores):
    
 def run_hmmscan_parallel(fins_sequences, fin_hmm_db, fout_scores):
     dout_scores_temp = os.path.dirname(fout_scores) + "/scores_temp"
-    os.mkdir(dout_scores_temp)
+    os.makedirs(dout_scores_temp, exist_ok = True)
     n = len(fins_sequences)
     fouts_scores_temp = ["%s/%i.tsv" % (dout_scores_temp, i) for i in range(n)]
     with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -186,6 +189,25 @@ def run_hmmscan_parallel(fins_sequences, fin_hmm_db, fout_scores):
         )
         subprocess.run(" ".join(["rm", fout_scores_temp]), shell = True)
     subprocess.run(" ".join(["rm -r", dout_scores_temp]), shell = True)
+
+def select_genomes_random(fins_genomes, n):
+    fins_seeds = []
+    for _ in range(n):
+        pos = randrange(len(fins_genomes))
+        fins_seeds.append(fins_genomes[pos])
+        fins_genomes[pos] = fins_genomes[-1]
+        del fins_genomes[-1]
+    return(fins_seeds)
+
+def run_orthofinder(fins_genomes, dout_orthofinder):
+    os.makedirs(dout_orthofinder, exist_ok = True)
+    for fin_genome in fins_genomes:
+        genome = re.search("[^/]+$", fin_genome).group(0)
+        shutil.copyfile(fin_genome, dout_orthofinder + "/" + genome)
+        subprocess.run(["gunzip", dout_orthofinder + "/" + genome]) 
+    command = ["orthofinder", "-M", "msa", "-os", "-t", "8",
+        "-f", dout_orthofinder]
+    subprocess.run(command)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -205,7 +227,7 @@ def parse_arguments():
         "--dout_profile_db",
         help = "the output directory for the hmm profiles of the orthogroups"
     )
-   args = parser.parse_args()
+    args = parser.parse_args()
     return(args)
 
 if __name__ == "__main__":
