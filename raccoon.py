@@ -74,6 +74,12 @@ class Orthogroup:
     def add_gene(self, gene):
         gene.orthogroup = self
 
+    def get_n_genomes(self):
+        genomes = set()
+        for gene in self.genes:
+            genomes.add(gene.genome)
+        return(len(genomes))
+
 
 """ 
 Class to store the list of genomes and list of orthogroups
@@ -111,10 +117,10 @@ def parse_orthogroups(din_orthofinder):
                 gene = Gene(gene_name.strip(), genome, orthogroup)
     return(taxon)
 
-def select_orthogroups(orthogroups, n_genes_min):
+def select_orthogroups(orthogroups, min_genomes):
     orthogroups_selected = []
     for orthogroup in orthogroups:
-        if len(orthogroup.genes) >= n_genes_min:
+        if orthogroup.get_n_genomes() >= min_genomes:
             orthogroups_selected.append(orthogroup)
     return(orthogroups_selected)
 
@@ -132,7 +138,7 @@ def align_orthogroups(orthogroups, din_orthogroups, dout_alignments):
     fouts_alignments = [dout_alignments + "/" + orthogroup.name + ".fasta"
         for orthogroup in orthogroups]
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(align_orthogroup, 
+        executor.map(align, 
             fins_sequences, fouts_alignments
         )
 
@@ -227,6 +233,10 @@ def parse_arguments():
         "--dout_profile_db",
         help = "the output directory for the hmm profiles of the orthogroups"
     )
+    parser.add_argument(
+        "--min_genomes",
+        help = "minimum number of genomes an orthogroups has to be present in"
+    )
     args = parser.parse_args()
     return(args)
 
@@ -240,17 +250,19 @@ if __name__ == "__main__":
             print("argument --din_orthofinder is required")
         elif args.dout_profile_db is None:
             print("argument --dout_profile_db is required")
+        elif args.min_genomes is None:
+            print("argument --min_genomes is required")
         else:
             print("starting profile construction on orthofinder output")
             taxon = parse_orthogroups(args.din_orthofinder)
-            orthogroups = select_orthogroups(taxon.orthogroups, 10)
+            orthogroups = select_orthogroups(taxon.orthogroups, int(args.min_genomes))
             print("found %i orthogroups" % (len(orthogroups)))
             d_alignments = args.dout_profile_db + "/alignments"
             d_profiles = args.dout_profile_db + "/profiles"
             d_profile_db = args.dout_profile_db + "/hmmer_db"
             din_orthofinder = args.din_orthofinder + "/Orthologues_*/Sequences"
             din_orthofinder = glob.glob(din_orthofinder)[0]
-            align_orthogroups(orthogroups, din_orthogrofinder, d_alignments)
+            align_orthogroups(orthogroups, din_orthofinder, d_alignments)
             construct_profile_db(orthogroups, d_alignments, d_profiles, d_profile_db)
 
     elif args.task == "get_core_genes":
