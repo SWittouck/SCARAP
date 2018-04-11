@@ -235,7 +235,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--min_genomes",
-        help = "minimum number of genomes an orthogroups has to be present in"
+        help = "minimum number of genomes an orthogroup has to be present in"
     )
     args = parser.parse_args()
     return(args)
