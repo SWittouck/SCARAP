@@ -214,58 +214,88 @@ def run_orthofinder(fins_genomes, dout_orthofinder):
     command = ["orthofinder", "-M", "msa", "-os", "-t", "8",
         "-f", dout_orthofinder]
     subprocess.run(command)
-
+    
 def parse_arguments():
+  
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "task",
         help = "the task you want to perform",
         choices = [
             "construct_profile_db",
-            "get_core_genes"
+            "prepare_candidate_scgs"
         ]
     )
-    parser.add_argument(
-        "--din_orthofinder",
-        help = "the input directory with orthofinder files"
-    )
-    parser.add_argument(
-        "--dout_profile_db",
-        help = "the output directory for the hmm profiles of the orthogroups"
-    )
-    parser.add_argument(
-        "--min_genomes",
-        help = "minimum number of genomes an orthogroup has to be present in"
-    )
-    args = parser.parse_args()
+    task = parser.parse_args(sys.argv[1:2]).task
+    sys.argv[0] = sys.argv[0] + " " + task
+    parser = argparse.ArgumentParser()
+    
+    if task == "construct_profile_db":
+        parser.add_argument(
+            "--din_orthofinder",
+            help = "the input directory with orthofinder files",
+            required = True
+        )
+        parser.add_argument(
+            "--dout_profile_db",
+            help = "the output directory for the hmm profiles of the orthogroups",
+            required = True
+        )
+        parser.add_argument(
+            "--min_genomes",
+            help = "minimum number of genomes an orthogroup has to be present in",
+            required = True
+        )
+        
+    elif task == "prepare_candidate_scgs":
+        parser.add_argument(
+            "--din_genomes",
+            help = "the input directory with the genomes as fastas of amino acid sequences",
+            required = True
+        )
+        parser.add_argument(
+            "--n_seed_genomes",
+            help = "the number of seed genomes to use",
+            required = True
+        )
+        parser.add_argument(
+            "--min_presence_in_seeds",
+            help = "the minimum number of seed genomes a candidate SCG needs to be present in",
+            required = True
+        )
+        parser.add_argument(
+            "--dout",
+            help = "the output directory for results",
+            required = True
+        )
+        
+    else:
+        print("Argparse should have dropped an 'unrecognized option' error")
+    
+    args = parser.parse_args(sys.argv[2:])
     return(args)
 
 if __name__ == "__main__":
 
-    print("\nthis is raccoon, version unknown")
+    print("")
+    print("this is raccoon, version unknown")
+    print("")
     args = parse_arguments()
 
     if args.task == "construct_profile_db":
-        if args.din_orthofinder is None:
-            print("argument --din_orthofinder is required")
-        elif args.dout_profile_db is None:
-            print("argument --dout_profile_db is required")
-        elif args.min_genomes is None:
-            print("argument --min_genomes is required")
-        else:
-            print("starting profile construction on orthofinder output")
-            taxon = parse_orthogroups(args.din_orthofinder)
-            orthogroups = select_orthogroups(taxon.orthogroups, int(args.min_genomes))
-            print("found %i orthogroups" % (len(orthogroups)))
-            d_alignments = args.dout_profile_db + "/alignments"
-            d_profiles = args.dout_profile_db + "/profiles"
-            d_profile_db = args.dout_profile_db + "/hmmer_db"
-            din_orthofinder = args.din_orthofinder + "/Orthologues_*/Sequences"
-            din_orthofinder = glob.glob(din_orthofinder)[0]
-            align_orthogroups(orthogroups, din_orthofinder, d_alignments)
-            construct_profile_db(orthogroups, d_alignments, d_profiles, d_profile_db)
+        print("starting profile construction on orthofinder output")
+        taxon = parse_orthogroups(args.din_orthofinder)
+        orthogroups = select_orthogroups(taxon.orthogroups, int(args.min_genomes))
+        print("found %i orthogroups" % (len(orthogroups)))
+        d_alignments = args.dout_profile_db + "/alignments"
+        d_profiles = args.dout_profile_db + "/profiles"
+        d_profile_db = args.dout_profile_db + "/hmmer_db"
+        din_orthofinder = args.din_orthofinder + "/Orthologues_*/Sequences"
+        din_orthofinder = glob.glob(din_orthofinder)[0]
+        align_orthogroups(orthogroups, din_orthofinder, d_alignments)
+        construct_profile_db(orthogroups, d_alignments, d_profiles, d_profile_db)
 
-    elif args.task == "get_core_genes":
+    elif args.task == "prepare_candidate_scgs":
         print("this task is not yet implemented")
 
     else:
