@@ -1,0 +1,800 @@
+#!/usr/bin/env python3
+
+import argparse
+import concurrent.futures
+import glob
+import gzip
+import os
+import pandas as pd
+import pathlib
+import random
+import re
+import shutil
+import subprocess
+import sys
+
+from Bio import SeqIO
+from Bio import SeqRecord
+from Bio.Align.Applications import MafftCommandline
+
+"""
+Class to store relations and metadata of a gene
+"""
+class Gene:
+
+    def __init__(self, name, genome, orthogroup):
+        self.name = name
+        self.genome = genome
+        self.orthogroup = orthogroup
+
+    def __str__(self):
+        return(self.name)
+
+    @property
+    def genome(self):
+        return(self._genome)
+
+    @genome.setter
+    def genome(self, genome):
+        self._genome = genome
+        genome.genes.append(self)
+
+    @property
+    def orthogroup(self):
+        return(self._orthogroup)
+
+    @orthogroup.setter
+    def orthogroup(self, orthogroup):
+        self._orthogroup = orthogroup
+        orthogroup.genes.append(self)
+
+
+"""
+Class to store relations and metadata of a genome
+"""
+class Genome:
+
+    def __init__(self, name):
+        self.name = name
+        self.genes = []
+
+    def __str__(self):
+        return(self.name)
+
+    def add_gene(self, gene):
+        gene.genome = self
+
+
+"""
+Class to store relations and metadata of an orthogroup
+"""
+class Orthogroup:
+
+    def __init__(self, name):
+        self.name = name
+        self.genes = []
+
+    def __str__(self):
+        return(self.name)
+
+    def add_gene(self, gene):
+        gene.orthogroup = self
+
+    def get_n_genomes(self):
+        genomes = set()
+        for gene in self.genes:
+            genomes.add(gene.genome)
+        return(len(genomes))
+
+
+"""
+Class to store the list of genomes and list of orthogroups
+"""
+class Taxon:
+
+    def __init__(self):
+        self.genomes = []
+        self.orthogroups = []
+
+# low-level functions
+
+def read_paths(fin_paths):
+    with open(fin_paths) as hin_paths:
+        paths = [p.strip() for p in hin_paths.readlines()]
+    return(paths)
+
+"""
+(origin: the 02_get_core_genes directory of comparative pangenomics)
+Function to extract single-copy core genes specified in a
+genomes-by-orthogroups matrix from a set of genomes.
+Input:
+  - fin_sc_genes_matrix: csv file
+  - din_genomes: folder with faa or ffn files of all genomes
+  - dout_sc_ogs: folder for the fasta files of the single-copy
+    core orthogroups
+"""
+def extract_scc_sequences(fin_sc_genes_matrix, din_genomes, dout_sc_ogs):
+
+    os.makedirs(dout_sc_ogs, exist_ok = True)
+
+    sc_genes_matrix = pd.read_csv(
+        fin_sc_genes_matrix,
+        index_col = "genome"
+    )
+
+    for genome, genes in sc_genes_matrix.iterrows():
+        print("parsing genome " + genome)
+        orthogroups = genes.keys().tolist()
+        genes = genes.tolist()
+        gene_to_orthogroup = dict(zip(genes, orthogroups))
+        fin_genome = glob.glob(din_genomes + "/" + genome + "*")[0]
+        with gzip.open(fin_genome, "rt") as hin_genome:
+            for record in SeqIO.parse(hin_genome, "fasta"):
+                orthogroup = gene_to_orthogroup.get(record.id)
+                if orthogroup is None:
+                    continue
+                fout_sc_og = dout_sc_ogs + "/" + orthogroup + ".fasta"
+                with open(fout_sc_og, "a") as hout_sc_og:
+                    SeqIO.write(record, hout_sc_og, "fasta")
+
+"""
+(origin: the 02_get_core_genes directory of comparative pangenomics)
+Function to align a SeqRecord of nucleotide sequences, given a SeqRecord
+of aligned amino acid sequences.
+Input:
+  - og_nucs: SeqRecord of nucleotide sequences to align
+  - og_aas_aligned = SeqRecord of amino acid sequences that are aligned
+    (reference alignment)
+Output:
+  - SeqRecord of aligned nucleotide sequences
+Naming:
+  - sr = SeqRecord (Biopython)
+  - og = orthogroup
+  - nucs = nucleotides
+  - aas = amino acids
+"""
+def align_nucs_using_aas(og_nucs, og_aas_aligned):
+    og_aas_aligned = {seq.id: seq.seq for seq in og_aas_aligned}
+    og_nucs_aligned = []
+    for nucs_sr in og_nucs:
+        nucs_id = nucs_sr.id
+        nucs_seq = nucs_sr.seq
+        aas_gapped_seq = og_aas_aligned[nucs_id]
+        nucs_gapped_seq = ""
+        nucs_pos = 0
+        for aa in aas_gapped_seq:
+            if aa == "-":
+                nucs_gapped_seq += "---"
+            else:
+                nucs_gapped_seq += nucs_seq[nucs_pos:(nucs_pos + 3)]
+                nucs_pos += 3
+        nucs_gapped_sr = SeqRecord.SeqRecord(id = nucs_id, seq = nucs_gapped_seq,
+            description = "")
+        og_nucs_aligned.append(nucs_gapped_sr)
+    return(og_nucs_aligned)
+
+"""
+(origin: the 02_get_core_genes directory of comparative pangenomics)
+Function to align a nucleotide fasta using an amino acid fasta as a reference
+alignment.
+Input:
+  - fin_og_nucs: nucleotide fasta to align (.fasta)
+  - fin_og_aas_aligned: amino acid fasta that is aligned (.aln)
+  - fout_og_nucs_aligned: file to store the aligned nucleotide fasta (.aln)
+"""
+def align_og_nucs(fin_og_nucs, fin_og_aas_aligned, fout_og_nucs_aligned):
+    print("aligning " + fin_og_nucs)
+    og_nucs = list(SeqIO.parse(fin_og_nucs, "fasta"))
+    og_aas_aligned = list(SeqIO.parse(fin_og_aas_aligned, "fasta"))
+    og_nucs_aligned = align_nucs_using_aas(og_nucs, og_aas_aligned)
+    with open(fout_og_nucs_aligned, "w") as hout_og_nucs_aligned:
+        SeqIO.write(og_nucs_aligned, hout_og_nucs_aligned, "fasta")
+
+"""
+(origin: the 02_get_core_genes directory of comparative pangenomics)
+Function to align a set of nucleotide fastas using a set of amino acid fastas
+as reference alignments.
+Input:
+  - din_ogs_nucs: folder with nucleotide fastas to align (contains .fastas)
+  - din_ogs_aas_aligned: folder with amino acid fastas that are aligned
+    (contains .alns)
+  - dout_ogs_nucs_aligned: folder to store aligned nucleotide fastas (.alns)
+"""
+def align_ogs_nucs(din_ogs_nucs, din_ogs_aas_aligned, dout_ogs_nucs_aligned):
+
+    os.makedirs(dout_ogs_nucs_aligned, exist_ok = True)
+
+    fins_ogs_nucs = glob.glob(din_ogs_nucs + "/*.fasta")
+    fins_ogs_aas_aligned = []
+    fouts_ogs_nucs_aligned = []
+
+    for fin_og_nucs in fins_ogs_nucs:
+        og = (re.compile("([^/]+).fasta")
+            .search(fin_og_nucs)
+            .group(1)
+        )
+        fins_ogs_aas_aligned.append(din_ogs_aas_aligned + "/" + og + ".aln")
+        fouts_ogs_nucs_aligned.append(dout_ogs_nucs_aligned + "/" + og + ".aln")
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(align_og_nucs,
+            fins_ogs_nucs, fins_ogs_aas_aligned, fouts_ogs_nucs_aligned
+        )
+
+"""
+(origin: the scripts directory of comparative pangenomics)
+Function to construct a supermatrix given alignments of individual single-copy
+core orthogroups.
+Input:
+  - fin_sc_genes_matrix: csv file
+  - din_sc_ogs_aligned: directory with one aln file for each single-copy
+    core orthogroup (may be nucleotide or amino acid sequences)
+  - fout_supermatrix: fasta file containing the supermatrix alignment
+"""
+def construct_supermatrix(fin_sc_genes_matrix, din_sc_ogs_aligned,
+    fout_supermatrix):
+
+    sc_genes_matrix = pd.read_csv(
+        fin_sc_genes_matrix,
+        index_col = "genome"
+    )
+
+    supermatrix = {}
+    for genome in sc_genes_matrix.index.values:
+        supermatrix[genome] = SeqRecord.SeqRecord(
+            id = genome, seq = "", description = ""
+        )
+
+    for profile in sc_genes_matrix:
+        print(profile)
+        fin_sc_og_aligned = din_sc_ogs_aligned + "/" + profile + ".aln"
+        gene_to_sequence = {}
+        for record in SeqIO.parse(fin_sc_og_aligned, "fasta"):
+            aln_length = len(record.seq)
+            gene_to_sequence[record.id] = record.seq
+        genes_of_profile = sc_genes_matrix.loc[:, profile]
+        for genome, gene in genes_of_profile.iteritems():
+            sequence_to_add = gene_to_sequence.get(gene, "-" * aln_length)
+            supermatrix[genome] = supermatrix[genome] + sequence_to_add
+
+    with open(fout_supermatrix, "a") as hout_supermatrix:
+        for genome in supermatrix:
+            SeqIO.write(supermatrix[genome], hout_supermatrix, "fasta")
+
+"""
+Function to parse an "orthogroups.csv" file
+Returns an object of class Taxon
+"""
+def read_orthogroups(din_orthofinder):
+    taxon = Taxon()
+    hin_orthofinder_csv = open(din_orthofinder + "/Orthogroups.csv", "r")
+    genome_names = next(hin_orthofinder_csv)
+    genome_names = genome_names.strip().split("\t")
+    for genome_name in genome_names:
+        genome = Genome(genome_name)
+        taxon.genomes.append(genome)
+    for line in hin_orthofinder_csv:
+        elements = line.split("\t")
+        orthogroup_name = elements[0]
+        del(elements[0])
+        orthogroup = Orthogroup(orthogroup_name)
+        taxon.orthogroups.append(orthogroup)
+        for ix, genome in enumerate(taxon.genomes):
+            element = elements[ix].strip()
+            if element == "":
+                continue
+            for gene_name in element.split(","):
+                gene = Gene(gene_name.strip(), genome, orthogroup)
+    print("found " + str(len(taxon.orthogroups)) + " orthogroups")
+    return(taxon)
+
+def select_orthogroups(taxon, min_genomes):
+    orthogroups = taxon.orthogroups
+    orthogroups_selected = []
+    for orthogroup in orthogroups:
+        if orthogroup.get_n_genomes() >= min_genomes:
+            orthogroups_selected.append(orthogroup)
+    print("selected " + str(len(orthogroups_selected)) + " orthogroups")
+    return(orthogroups_selected)
+
+def read_domtbl(fin_domtbl):
+    domtbl = pd.read_csv(
+        fin_domtbl,
+        delim_whitespace = True,
+        comment = '#', header = None,
+        usecols = [0, 3, 13, 15, 16],
+        names = ['gene', 'profile', 'score', 'hmm_from', 'hmm_to'],
+        dtype = {'gene': str, 'profile': str, 'score': float, 'hmm_from': int, 'hmm_to': int}
+    )
+    return(domtbl)
+
+"""
+Function to perform initial processing of a hmmer domtbl file.
+- Takes the best profile hit per gene.
+- Looks up the genome of each gene and adds it to the score table.
+Returns a score table in the form of a data frame.
+Can handle zipped genomes.
+"""
+def process_domtbl(domtbl, fins_genomes):
+
+    scores_to_keep = (domtbl
+        .loc[:, ['gene', 'score']]
+        .groupby('gene')
+        .idxmax()
+        .score
+    )
+
+    scores = (domtbl
+        .iloc[scores_to_keep, :]
+        .set_index("gene")
+    )
+
+    genes = pd.DataFrame()
+
+    for fin_genome in fins_genomes:
+        genome = (re.compile("([^/]+).faa.gz")
+            .search(fin_genome)
+            .group(1)
+        )
+        with gzip.open(fin_genome, mode = "rt") as hin:
+            fasta = hin.read()
+        genes_genome = (re.compile(">([^ ]+)")
+            .findall(fasta)
+        )
+        genes_genome = pd.DataFrame({"gene": genes_genome})
+        try:
+            genes_genome.loc[:, "genome"] = genome
+            genes = genes.append(genes_genome)
+        except ValueError:
+            pass
+
+    genes = genes.set_index("gene")
+
+    scores = scores.merge(genes, how = 'left', left_index = True, right_index = True)
+
+    return(scores)
+
+def train_hmmer_cutoffs(fin_score_table, fout_scg_table):
+    scripts_path = os.path.dirname(os.path.realpath(__file__)) + "/scripts"
+    with open(os.devnull, 'w') as devnull:
+        subprocess.run(["Rscript", scripts_path + "/train_hmmer_cutoffs.R",
+            fin_score_table, fout_scg_table], stdout = devnull, stderr = devnull)
+
+# low-level functions calling external tools
+
+def run_orthofinder(fins_genomes, dout_orthofinder, threads):
+    os.makedirs(dout_orthofinder, exist_ok = True)
+    for fin_genome in fins_genomes:
+        genome = pathlib.PurePosixPath(fin_genome).name
+        fout_genome = dout_orthofinder + "/" + genome
+        shutil.copyfile(fin_genome, fout_genome)
+        subprocess.run(["gunzip", fout_genome])
+    # run orthofinder with dimaond
+    # subprocess.run(["orthofinder", "-S", "diamond", "-M", "msa", "-os",
+    #     "-t", str(threads), "-f", dout_orthofinder])
+    # run orthofinder with blast
+    subprocess.run(["orthofinder", "-M", "msa", "-os",
+        "-t", str(threads), "-f", dout_orthofinder])
+
+def run_mafft(fin_aa_seqs, fout_aa_seqs_aligned):
+    print("started aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
+    mafft_cline = MafftCommandline(input = fin_aa_seqs)
+    stdout, stderr = mafft_cline()
+    with open(fout_aa_seqs_aligned, "w") as hout_aa_seqs_aligned:
+        hout_aa_seqs_aligned.write(stdout)
+    print("finished aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
+
+def run_mafft_parallel(fins_aa_seqs, fouts_aa_seqs_aligned):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(run_mafft,
+            fins_aa_seqs, fouts_aa_seqs_aligned
+        )
+
+def run_hmmbuild(fin_aa_seqs_aligned, fout_hmm):
+    subprocess.run(
+        ["hmmbuild", fout_hmm, fin_aa_seqs_aligned],
+        stdout = subprocess.PIPE,
+    )
+    print("constructed profile of " + pathlib.PurePosixPath(fin_aa_seqs_aligned).stem)
+
+def run_hmmbuild_parallel(fins_aa_seqs_aligned, fouts_hmms):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(run_hmmbuild,
+            fins_aa_seqs_aligned, fouts_hmms
+        )
+
+def run_hmmpress(fins_hmms, dout_hmm_db):
+    print("pressing hmm database for " + str(len(fins_hmms)) + " gene families")
+    fout_hmm_db = dout_hmm_db + "/hmm_db"
+    subprocess.run(
+        " ".join(["cat"] + fins_hmms + [">", fout_hmm_db]),
+        shell = True
+    )
+    subprocess.run(
+        ["hmmpress", fout_hmm_db],
+        stdout = subprocess.PIPE
+    )
+
+def run_hmmsearch(din_hmm_db, fins_genomes, fout_domtbl):
+    fin_hmm_db = din_hmm_db + "/hmm_db"
+    fout_temp_genomes = din_hmm_db + "/genomes.temp"
+    subprocess.run(
+        " ".join(["cat"] + fins_genomes + [">", fout_temp_genomes]),
+        shell = True
+    )
+    subprocess.run(["hmmsearch", "-o", "/dev/null", "--domtblout", fout_domtbl,
+        fin_hmm_db, fout_temp_genomes])
+    subprocess.run(["rm", fout_temp_genomes])
+
+def run_gunzip(fin):
+    subprocess.run(["gunzip", fin])
+
+def run_gunzip_parallel(fins):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(run_gunzip, fins)
+
+def run_gzip(fin):
+    subprocess.run(["gzip", fin])
+
+def run_gzip_parallel(fins):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(run_gzip, fins)
+
+# high-level stuff
+
+def construct_profile_db(fins_aa_seqs, dout):
+
+    # define variables for output files and directories
+    dout_alignments = dout + "/alignments"
+    dout_profiles = dout + "/profiles"
+    dout_hmm_db = dout + "/hmm_db"
+
+    # create directories
+    douts_to_create = [dout_alignments, dout_profiles, dout_hmm_db]
+    for dout_to_create in douts_to_create:
+        os.makedirs(dout_to_create, exist_ok = True)
+
+    # define file lists
+    families = [pathlib.PurePosixPath(fin).stem for fin in fins_aa_seqs]
+    fouts_alignments = [dout_alignments + "/" + fam + ".aln"
+        for fam in families]
+    fouts_profiles = [dout_profiles + "/" + fam + ".hmm"
+        for fam in families]
+
+    # align families, build profiles, build hmm database
+    run_mafft_parallel(fins_aa_seqs, fouts_alignments)
+    run_hmmbuild_parallel(fouts_alignments, fouts_profiles)
+    run_hmmpress(fouts_profiles, dout_hmm_db)
+
+def select_scgs(fin_score_table, fin_candidate_scg_table, candidate_scg_cutoff,
+    fout_scg_list, fout_genome_table):
+    scripts_path = os.path.dirname(os.path.realpath(__file__)) + "/scripts"
+    with open(os.devnull, 'w') as devnull:
+        subprocess.run(["Rscript", scripts_path + "/select_scgs.R",
+            fin_score_table, fin_candidate_scg_table, candidate_scg_cutoff,
+            fout_scg_list, fout_genome_table], stdout = devnull, stderr = devnull)
+
+def select_genomes(fin_genome_table, missingness_cutoff, redundancy_cutoff,
+    fout_genome_list):
+    scripts_path = os.path.dirname(os.path.realpath(__file__)) + "/scripts"
+    with open(os.devnull, 'w') as devnull:
+        subprocess.run(["Rscript", scripts_path + "/select_genomes.R",
+            fin_genome_table, missingness_cutoff, redundancy_cutoff,
+            fout_genome_list], stdout = devnull, stderr = devnull)
+
+def construct_scg_matrix(fin_score_table, fin_candidate_scg_table,
+    fin_genome_list, fin_scg_list, fout_scg_matrix):
+    scripts_path = os.path.dirname(os.path.realpath(__file__)) + "/scripts"
+    with open(os.devnull, 'w') as devnull:
+        subprocess.run(["Rscript", scripts_path + "/construct_scg_matrix.R",
+            fin_score_table, fin_candidate_scg_table, fin_genome_list,
+            fin_scg_list, fout_scg_matrix], stdout = devnull,
+            stderr = devnull
+
+'''
+Calculates a pairwise sequence identity matrix for a list of DNA sequences
+or SeqRecords.
+Probably approximately as fast as the distmat tool from EMBOSS, but this function
+can easily be parallelized on (batches of) columns.
+'''
+def identity_matrix(seqrecords, alphabet = ["A", "C", "T", "G"]):
+
+    n_seqs = len(seqrecords)
+    n_cols = len(seqrecords[0].seq)
+
+    # matrix with pairwise counts of alignment positions that are
+    # identical
+    identity_counts = np.zeros((n_seqs, n_seqs), np.uint32)
+    # matrix with pairwise counts of alignment positions that are
+    # incomparable
+    comparable_counts = np.zeros((n_seqs, n_seqs), np.uint32)
+
+    for col in range(n_cols):
+        print("col ", col, " of ", n_cols)
+        # dictionary to store for each possible character the indices
+        # of sequences with that character
+        chars = {}
+        for sr_ix, sr in enumerate(seqrecords):
+            chars.setdefault(sr.seq[col], []).append(sr_ix)
+        # for letters in the alphabet, add identity counts
+        ixs_comp = np.array([], np.uint32)
+        for letter in alphabet:
+            ixs = np.array(chars.pop(letter, []), np.uint32)
+            identity_counts[ixs[:, None], ixs] += 1
+            ixs_comp = np.hstack((ixs_comp, ixs))
+        # for all sequence combinations that both have a letter in the alphabet
+        # add that they are comparable
+        comparable_counts[ixs_comp[:, None], ixs_comp] += 1
+
+    identity_matrix = identity_counts / comparable_counts
+
+    return(identity_matrix)
+
+def parse_arguments():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "task",
+        help = "the task you want to perform",
+        choices = [
+            "construct_profile_db",
+            "prepare_candidate_scgs",
+            "select_scgs",
+            "select_genomes",
+            "construct_scg_matrix",
+            "construct_supermatrix",
+            "calculate_scnis",
+            "nucleotide_supermatrix_from_scg_matrix"
+        ]
+    )
+    task = parser.parse_args(sys.argv[1:2]).task
+    sys.argv[0] = sys.argv[0] + " " + task
+    parser = argparse.ArgumentParser()
+
+    if task == "construct_profile_db":
+        parser.add_argument(
+            "--fin_aa_seqs_paths",
+            help = "a txt file with the paths of the gene families to put in the database",
+            required = True
+        )
+        parser.add_argument(
+            "--dout",
+            help = "the output directory for the alignments, profiles hmms and hmmer database",
+            required = True
+        )
+
+    elif task == "prepare_candidate_scgs":
+        parser.add_argument(
+            "--fin_genomepaths",
+            help = "a txt file with paths to the genomes as fastas of amino acid sequences",
+            required = True
+        )
+        parser.add_argument(
+            "--n_seed_genomes",
+            help = "the number of seed genomes to use",
+            required = True
+        )
+        parser.add_argument(
+            "--min_presence_in_seeds",
+            help = "the minimum number of seed genomes a candidate SCG needs to be present in",
+            required = True
+        )
+        parser.add_argument(
+            "--dout",
+            help = "the output directory for results",
+            required = True
+        )
+        parser.add_argument(
+            "--threads",
+            help = "the number of threads to use",
+            required = True
+        )
+
+    elif task == "select_scgs":
+        parser.add_argument(
+            "--fin_score_table",
+            help = "a table with information on hmmer scores",
+            required = True
+        )
+        parser.add_argument(
+            "--fin_candidate_scg_table",
+            help = "a table with information on candidate scgs",
+            required = True
+        )
+        parser.add_argument(
+            "--candidate_scg_cutoff",
+            help = "the minimum percentage single copy presence for a candidate scg",
+            required = True
+        )
+        parser.add_argument(
+            "--fout_scg_list",
+            help = "path to store the single-copy core gene list",
+            required = True
+        )
+        parser.add_argument(
+            "--fout_genome_table",
+            help = "path to store the genome table",
+            required = True
+        )
+
+    elif task == "select_genomes":
+        parser.add_argument(
+            "--fin_genome_table",
+            help = "a table with genomes and their missingness and redundancy",
+            required = True
+        )
+        parser.add_argument(
+            "--missingness_cutoff",
+            help = "maximum missingness value (strict maximum)",
+            required = True
+        )
+        parser.add_argument(
+            "--redundancy_cutoff",
+            help = "maximum redundancy value (strict maximum)",
+            required = True
+        )
+        parser.add_argument(
+            "--fout_genome_list",
+            help = "path to store list with genome that pass the cutoffs",
+            required = True
+        )
+
+    elif task == "construct_scg_matrix":
+        parser.add_argument(
+            "--fin_score_table",
+            help = "a table with information on hmmer scores",
+            required = True
+        )
+        parser.add_argument(
+            "--fin_candidate_scg_table",
+            help = "a table with information on candidate scgs",
+            required = True
+        )
+        parser.add_argument(
+            "--fin_genome_list",
+            help = "a list of genomes to include",
+            required = True
+        )
+        parser.add_argument(
+            "--fin_scg_list",
+            help = "a list of scgs to include",
+            required = True
+        )
+        parser.add_argument(
+            "--fout_scg_matrix",
+            help = "path to store the sgc matrix",
+            required = True
+        )
+
+    elif task == "nucleotide_supermatrix_from_scg_matrix":
+        parser.add_argument(
+            "--fin_scg_matrix",
+            help = "a csv file with names of single-copy core genes where the rows are genomes and the columns orthogroups",
+            required = True
+        )
+        parser.add_argument(
+            "--din_ffns",
+            help = "the directory with a fasta file with nucleotide sequences of all genes (ffn) per genome",
+            required = True
+        )
+        parser.add_argument(
+            "--din_faas",
+            help = "the directory with a fasta file with amino acid sequences of all genes (faa) per genome",
+            required = True
+        )
+        parser.add_argument(
+            "--dout",
+            help = "output directory",
+            required = True
+        )
+
+    else:
+        print("Argparse should have dropped an 'unrecognized option' error")
+
+    args = parser.parse_args(sys.argv[2:])
+    args.task = task
+
+    return(args)
+
+if __name__ == "__main__":
+
+    print("\nhi, this is the progenomics toolkit for prokaryotic genomics\n")
+
+    args = parse_arguments()
+
+    if args.task == "construct_profile_db":
+
+        fins_aa_seqs = read_paths(args.fin_aa_seqs_paths)
+        construct_profile_db(fins_aa_seqs, args.dout)
+
+    elif args.task == "prepare_candidate_scgs":
+
+        # define variables for output directories
+        dout_orthofinder = args.dout + "/orthofinder"
+        dout_cand_scgs = args.dout + "/candidate_scgs"
+        dout_hmm_db = dout_cand_scgs + "/hmm_db"
+
+        # define variables for output files
+        fout_cand_scg_domtbl = args.dout + "/candidate_scg_domtbl.txt"
+        fout_score_table = args.dout + "/score_table.csv"
+        fout_candidate_scg_table = args.dout + "/scg_candidate_table.csv"
+
+        # create directories
+        os.makedirs(dout_cand_scgs, exist_ok = True)
+
+        # 1) select seeds and construct gene families
+        fins_genomes = read_paths(args.fin_genomepaths)
+        fins_seeds = random.sample(fins_genomes, int(args.n_seed_genomes))
+        run_orthofinder(fins_seeds, dout_orthofinder, args.threads)
+
+        # 2) identify candidate scgs
+        dout_orthofinder_results = glob.glob(dout_orthofinder + "/Results_*")[0]
+        taxon = read_orthogroups(dout_orthofinder_results)
+        orthogroups = select_orthogroups(taxon, int(args.min_presence_in_seeds))
+
+        # define file lists for candidate scgs
+        dout_orthofinder_ogs = glob.glob(dout_orthofinder_results + "/Orthologues_*/Sequences")[0]
+        fouts_cand_scg_seqs = [dout_orthofinder_ogs + "/" + orthogroup.name + ".fa"
+            for orthogroup in orthogroups]
+
+        # 3) scan orthogroups in all genomes
+        construct_profile_db(fouts_cand_scg_seqs, dout_cand_scgs)
+        print("unzipping all genomes")
+        run_gunzip_parallel(fins_genomes)
+        print("performing hmmer search")
+        fins_genomes_unzipped = [str(pathlib.PurePosixPath(fin).with_suffix(""))
+            for fin in fins_genomes]
+        run_hmmsearch(dout_hmm_db, fins_genomes_unzipped, fout_cand_scg_domtbl)
+        print("rezipping all genomes")
+        run_gzip_parallel(fins_genomes_unzipped)
+        print("reading hmmer domtbl")
+        domtbl = read_domtbl(fout_cand_scg_domtbl)
+        print("creating score table")
+        score_table = process_domtbl(domtbl, fins_genomes)
+        score_table.to_csv(fout_score_table)
+        print("constructing scg table")
+        train_hmmer_cutoffs(fout_score_table, fout_candidate_scg_table)
+
+    elif args.task == "select_scgs":
+
+        print("selecting scgs")
+        select_scgs(args.fin_score_table, args.fin_candidate_scg_table,
+            args.candidate_scg_cutoff, args.fout_scg_list, args.fout_genome_table)
+
+    elif args.task == "select_genomes":
+
+        print("selecting genomes")
+        select_genomes(args.fin_genome_table, args.missingness_cutoff,
+            args.redundancy_cutoff, args.fout_genome_list)
+
+    elif args.task == "construct_scg_matrix":
+
+        print("constructing scg matrix")
+        construct_scg_matrix(args.fin_score_table, args.fin_candidate_scg_table,
+            args.fin_genome_list, args.fin_scg_list,
+            args.fout_scg_matrix)
+
+    elif args.task == "nucleotide_supermatrix_from_scg_matrix":
+
+        print("extracting scg nucleotides")
+        extract_scc_sequences(args.fin_scg_matrix, args.din_ffns, args.dout + "/scgs_nucs")
+        print("extracting scg amino acids")
+        extract_scc_sequences(args.fin_scg_matrix, args.din_faas, args.dout + "/scgs_aas")
+        print("aligning scg amino acids")
+        fins_scgs_aas = glob.glob(args.dout + "/scgs_aas/*.fasta")
+        os.makedirs(args.dout + "/scgs_aas_aligned", exist_ok = True)
+        fouts_scgs_aas_aligned = [args.dout + "/scgs_aas_aligned/" + pathlib.Path(path).stem + ".aln"
+            for path in fins_scgs_aas]
+        run_mafft_parallel(fins_scgs_aas, fouts_scgs_aas_aligned)
+        print("aligning scg nucleotides using amino acid alignments")
+        align_ogs_nucs(args.dout + "/scgs_nucs", args.dout + "/scgs_aas_aligned",
+            args.dout + "/scgs_nucs_aligned")
+        print("constructing supermatrix")
+        construct_supermatrix(args.fin_scg_matrix, args.dout + "/scgs_nucs_aligned",
+            args.dout + "/supermatrix_nucs.fasta")
+
+    else:
+
+        print("this task is not yet implemented")
+
+    print("\nprogenomics out\n")
