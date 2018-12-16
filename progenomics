@@ -491,12 +491,12 @@ def construct_scg_matrix(fin_score_table, fin_candidate_scg_table,
             fin_scg_list, fout_scg_matrix], stdout = devnull,
             stderr = devnull
 
-'''
+"""
 Calculates a pairwise sequence identity matrix for a list of DNA sequences
 or SeqRecords.
 Probably approximately as fast as the distmat tool from EMBOSS, but this function
 can easily be parallelized on (batches of) columns.
-'''
+"""
 def identity_matrix(seqrecords, alphabet = ["A", "C", "T", "G"]):
 
     n_seqs = len(seqrecords)
