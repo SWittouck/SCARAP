@@ -489,7 +489,7 @@ def construct_scg_matrix(fin_score_table, fin_candidate_scg_table,
         subprocess.run(["Rscript", scripts_path + "/construct_scg_matrix.R",
             fin_score_table, fin_candidate_scg_table, fin_genome_list,
             fin_scg_list, fout_scg_matrix], stdout = devnull,
-            stderr = devnull
+            stderr = devnull)
 
 """
 Calculates a pairwise sequence identity matrix for a list of DNA sequences
@@ -698,7 +698,7 @@ def parse_arguments():
 
 if __name__ == "__main__":
 
-    print("\nhi, this is the progenomics toolkit for prokaryotic genomics\n")
+    print("\nhi, this is progenomics version 0.9\n")
 
     args = parse_arguments()
 
