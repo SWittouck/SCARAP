@@ -37,9 +37,9 @@ genomes <-
   group_by(genome) %>%
   summarize(n_present = n(), n_redundant = sum(n > 1)) %>%
   mutate(
-    missingness = (!! n_scgs - n_present) / !! n_scgs,
+    completeness = n_present / !! n_scgs,
     redundancy = n_redundant / !! n_scgs
   ) %>%
-  select(genome, missingness, redundancy)
+  select(genome, completeness, redundancy)
 
 write_csv(genomes, fout_genome_table)

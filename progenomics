@@ -474,12 +474,12 @@ def select_scgs(fin_score_table, fin_candidate_scg_table, candidate_scg_cutoff,
             fin_score_table, fin_candidate_scg_table, candidate_scg_cutoff,
             fout_scg_list, fout_genome_table], stdout = devnull, stderr = devnull)
 
-def select_genomes(fin_genome_table, missingness_cutoff, redundancy_cutoff,
+def select_genomes(fin_genome_table, completeness_cutoff, redundancy_cutoff,
     fout_genome_list):
     scripts_path = os.path.dirname(os.path.realpath(__file__)) + "/scripts"
     with open(os.devnull, 'w') as devnull:
         subprocess.run(["Rscript", scripts_path + "/select_genomes.R",
-            fin_genome_table, missingness_cutoff, redundancy_cutoff,
+            fin_genome_table, completeness_cutoff, redundancy_cutoff,
             fout_genome_list], stdout = devnull, stderr = devnull)
 
 def construct_scg_matrix(fin_score_table, fin_candidate_scg_table,
@@ -624,8 +624,8 @@ def parse_arguments():
             required = True
         )
         parser.add_argument(
-            "--missingness_cutoff",
-            help = "maximum missingness value (strict maximum)",
+            "--completeness_cutoff",
+            help = "minimum completeness value (strict minimum)",
             required = True
         )
         parser.add_argument(
@@ -764,7 +764,7 @@ if __name__ == "__main__":
     elif args.task == "select_genomes":
 
         print("selecting genomes")
-        select_genomes(args.fin_genome_table, args.missingness_cutoff,
+        select_genomes(args.fin_genome_table, args.completeness_cutoff,
             args.redundancy_cutoff, args.fout_genome_list)
 
     elif args.task == "construct_scg_matrix":
