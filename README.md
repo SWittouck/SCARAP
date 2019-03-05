@@ -1,4 +1,4 @@
-# Progenomics: toolkit for prokaryotic comparative genomics
+# Progenomics: toolkit for prokaryotic comparative genomics.
 
 Progenomics is a general toolkit-under-construction for comparative genomics of prokaryotes. It should be able to handle large genome datasets of small to medium sequence divergence (i.e., genomes from the same species, genus, family and possibly order). What is currently implemented is a pipeline to get the __core genome__ for up to thousands of genomes overnight on a decent desktop computer. A __pangenome pipeline__ is planned for the near future.
 
@@ -6,12 +6,16 @@ Progenomics depends on [OrthoFinder](https://github.com/davidemms/OrthoFinder) f
 
 ## Dependencies
 
-* OrthoFinder version >= 2.1.2
-* Biopython version >= 1.67
-* blast version >= 2.6.0
-* MCL version >= 14-137
-* HMMER version >= 3.1b2,
-* R version >= 3.5.1
+* [Python3](https://www.python.org/) version >= 3.6.7
+* Python libraries:
+    * [Biopython](https://biopython.org/) version >= 1.67
+    * [pandas](https://pandas.pydata.org/) version >= 0.24.1
+* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0
+* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137
+* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2
+* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
+* [HMMER](http://hmmer.org/) version >= 3.1b2,
+* [R](https://www.r-project.org/) version >= 3.5.1
 * R packages:
     * ROCR version >= 1.0.7
     * tidyverse version >= 1.2.1
