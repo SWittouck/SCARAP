@@ -68,6 +68,14 @@ Finally, we can construct a __SCG matrix__ where the rows are genomes, the colum
      --fin_scg_list scg_list.txt \
      --fout_scg_matrix scg_matrix.csv
 
+Progenomics is also capable of producing a concatenated nucleotide alignment of the SCGs by aligning the amino acid sequences, backtranslating the alignments to alignments of nucleic acid sequences and concatenating these. For this purpose, we do of course need the nucleotide sequences of the genes (ffn files). 
+ 
+    progenomics nucleotide_supermatrix_from_scg_matrix \
+      --fin_scg_matrix scg_matrix.csv \
+      --din_ffns dir_with_ffns \
+      --din_faas genomes \
+      --dout ./
+
 ## Pangenome pipeline
 
 Coming soon!
