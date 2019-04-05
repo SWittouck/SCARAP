@@ -332,11 +332,11 @@ def process_domtbl(domtbl, fins_genomes):
     genes = pd.DataFrame()
 
     for fin_genome in fins_genomes:
-        genome = (re.compile("([^/]+).faa.gz")
+        genome = (re.compile("([^/]+).faa")
             .search(fin_genome)
             .group(1)
         )
-        with gzip.open(fin_genome, mode = "rt") as hin:
+        with open(fin_genome, mode = "rt") as hin: # if zipped file: use gzip.open()
             fasta = hin.read()
         genes_genome = (re.compile(">([^ ]+)")
             .findall(fasta)
@@ -369,7 +369,7 @@ def run_orthofinder(fins_genomes, dout_orthofinder, threads):
         fout_genome = dout_orthofinder + "/" + genome
         shutil.copyfile(fin_genome, fout_genome)
         subprocess.run(["gunzip", fout_genome])
-    # run orthofinder with dimaond
+    # # run orthofinder with dimaond
     # subprocess.run(["orthofinder", "-S", "diamond", "-M", "msa", "-os",
     #     "-t", str(threads), "-f", dout_orthofinder])
     # run orthofinder with blast
@@ -698,7 +698,7 @@ def parse_arguments():
 
 if __name__ == "__main__":
 
-    print("\nhi, this is progenomics version 0.9\n")
+    print("\nhi, this is progenomics version 0.9.0\n")
 
     args = parse_arguments()
 
@@ -739,14 +739,15 @@ if __name__ == "__main__":
 
         # 3) scan orthogroups in all genomes
         construct_profile_db(fouts_cand_scg_seqs, dout_cand_scgs)
-        print("unzipping all genomes")
-        run_gunzip_parallel(fins_genomes)
+        # print("unzipping all genomes") # to probably remove
+        # run_gunzip_parallel(fins_genomes) # to probably remove
         print("performing hmmer search")
-        fins_genomes_unzipped = [str(pathlib.PurePosixPath(fin).with_suffix(""))
-            for fin in fins_genomes]
+        # fins_genomes_unzipped = [str(pathlib.PurePosixPath(fin).with_suffix(""))
+        #     for fin in fins_genomes] # to probably remove
+        fins_genomes_unzipped = fins_genomes # replaces prev two lines
         run_hmmsearch(dout_hmm_db, fins_genomes_unzipped, fout_cand_scg_domtbl)
-        print("rezipping all genomes")
-        run_gzip_parallel(fins_genomes_unzipped)
+        # print("rezipping all genomes") # to probably remove
+        # run_gzip_parallel(fins_genomes_unzipped) # to probably remove
         print("reading hmmer domtbl")
         domtbl = read_domtbl(fout_cand_scg_domtbl)
         print("creating score table")
