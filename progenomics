@@ -368,7 +368,7 @@ def run_orthofinder(fins_genomes, dout_orthofinder, threads):
         genome = pathlib.PurePosixPath(fin_genome).name
         fout_genome = dout_orthofinder + "/" + genome
         shutil.copyfile(fin_genome, fout_genome)
-        subprocess.run(["gunzip", fout_genome])
+        # subprocess.run(["gunzip", fout_genome]) # to remove
     # # run orthofinder with dimaond
     # subprocess.run(["orthofinder", "-S", "diamond", "-M", "msa", "-os",
     #     "-t", str(threads), "-f", dout_orthofinder])
