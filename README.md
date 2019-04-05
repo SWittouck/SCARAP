@@ -57,7 +57,7 @@ We now select the definitive SCGs from the candidates by requiring that they are
 
 As a result, we get two output files: a list with SCG names and a table with for each genome, the percentage "completeness" and "redundancy"; those two measures can be used for __genome quality filtering__. For this demonstration, we keep all of our genomes and save their names in a txt file:
 
-    cut -f 1 genome_table.csv > selected_genomes.txt
+    cut -d , -f 1 genome_table.csv | tail -n +2 > selected_genomes.txt
 
 Finally, we can construct a __SCG matrix__ where the rows are genomes, the columns are SCGs and the cells contain the actual names of individual genes:
 
