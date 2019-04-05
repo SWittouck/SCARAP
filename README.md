@@ -1,4 +1,4 @@
-# Progenomics: toolkit for prokaryotic comparative genomics.
+# Progenomics: toolkit for prokaryotic comparative genomics
 
 Progenomics is a general toolkit-under-construction for comparative genomics of prokaryotes. It should be able to handle large genome datasets of small to medium sequence divergence (i.e., genomes from the same species, genus, family and possibly order). What is currently implemented is a pipeline to get the __core genome__ for up to thousands of genomes overnight on a decent desktop computer. A __pangenome pipeline__ is planned for the near future.
 
@@ -33,9 +33,9 @@ Progenomics works in four stages to be able to rapidly determine single-copy cor
 
 **Tutorial**
 
-In this workflow, we start from a set of genomes (up to ~ 3000 if you want to run overnight on a decent desktop computer) and we want to extract a complete set of single-copy core genes (SCGs) of those genomes. As input data, we need to have a set of predicted protein sequences (.faa file) for each genome. We need to supply the __paths to these .faa files__ to progenomics as a single txt file. If all .faa files are in the same folder, we can create such a file as follows:
+In his workflow, we start from a set of genomes (up to ~ 3000 if you want to run overnight on a decent desktop computer) and we want to extract a complete set of single-copy core genes (SCGs) of those genomes. As input data, we need to have a set of predicted protein sequences (.faa file) for each genome. We need to supply the __paths to these .faa files__ to progenomics as a single txt file (files should be uncompressed). If all .faa files are in the same folder, we can create such a file as follows:
 
-    ls genomes/*.faa.gz > genomepaths.txt
+    ls genomes/*.faa > genomepaths.txt
 
 Next, we extract candidate SCGs from the genomes and search for them in the complete genome dataset (__steps 1 - 3__). Candidate SCGs are gene families that are present in a single copy in at least K genomes out of N randomly chosen seed genomes. We could set K to 25 and N to 30, for example:
 
