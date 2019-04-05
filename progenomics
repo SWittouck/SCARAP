@@ -332,7 +332,7 @@ def process_domtbl(domtbl, fins_genomes):
     genes = pd.DataFrame()
 
     for fin_genome in fins_genomes:
-        genome = (re.compile("([^/]+).faa")
+        genome = (re.compile("([^/]+)\.faa")
             .search(fin_genome)
             .group(1)
         )
@@ -717,7 +717,7 @@ if __name__ == "__main__":
         # define variables for output files
         fout_cand_scg_domtbl = args.dout + "/candidate_scg_domtbl.txt"
         fout_score_table = args.dout + "/score_table.csv"
-        fout_candidate_scg_table = args.dout + "/scg_candidate_table.csv"
+        fout_candidate_scg_table = args.dout + "/candidate_scg_table.csv"
 
         # create directories
         os.makedirs(dout_cand_scgs, exist_ok = True)

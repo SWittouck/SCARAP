@@ -13,6 +13,8 @@ genes <- read_csv(fin_score_table)
 
 cutoff <- function(score, is_best_copy) {
 
+  if(all(is_best_copy)) return(min(score))
+
   pred <- prediction(score, is_best_copy)
   perf <- performance(pred, "f")
 
@@ -46,7 +48,7 @@ n_genomes <- genes$genome %>%
 # count genomes where profile is present
 profiles_presence <- genes %>%
   left_join(profiles) %>%
-  filter(score > gene_cutoff) %>%
+  filter(score >= gene_cutoff) %>%
   count(profile, genome) %>%
   group_by(profile) %>%
   summarize(
