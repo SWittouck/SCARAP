@@ -183,7 +183,7 @@ Input:
   - fout_og_nucs_aligned: file to store the aligned nucleotide fasta (.aln)
 """
 def align_og_nucs(fin_og_nucs, fin_og_aas_aligned, fout_og_nucs_aligned):
-    print("aligning " + fin_og_nucs)
+    # print("aligning " + fin_og_nucs)
     og_nucs = list(SeqIO.parse(fin_og_nucs, "fasta"))
     og_aas_aligned = list(SeqIO.parse(fin_og_aas_aligned, "fasta"))
     og_nucs_aligned = align_nucs_using_aas(og_nucs, og_aas_aligned)
@@ -285,7 +285,7 @@ def read_orthogroups(din_orthofinder):
                 continue
             for gene_name in element.split(","):
                 gene = Gene(gene_name.strip(), genome, orthogroup)
-    print("found " + str(len(taxon.orthogroups)) + " orthogroups")
+    print("  found " + str(len(taxon.orthogroups)) + " orthogroups")
     return(taxon)
 
 def select_orthogroups(taxon, min_genomes):
@@ -294,17 +294,18 @@ def select_orthogroups(taxon, min_genomes):
     for orthogroup in orthogroups:
         if orthogroup.get_n_genomes() >= min_genomes:
             orthogroups_selected.append(orthogroup)
-    print("selected " + str(len(orthogroups_selected)) + " orthogroups")
+    print("  selected " + str(len(orthogroups_selected)) + " orthogroups")
     return(orthogroups_selected)
 
 def read_domtbl(fin_domtbl):
     domtbl = pd.read_csv(
         fin_domtbl,
         delim_whitespace = True,
-        comment = '#', header = None,
+        comment = '#',
         usecols = [0, 3, 13, 15, 16],
         names = ['gene', 'profile', 'score', 'hmm_from', 'hmm_to'],
-        dtype = {'gene': str, 'profile': str, 'score': float, 'hmm_from': int, 'hmm_to': int}
+        dtype = {'gene': str, 'profile': str, 'score': float, 'hmm_from': int, 'hmm_to': int},
+        engine = 'python'
     )
     return(domtbl)
 
@@ -377,12 +378,12 @@ def run_orthofinder(fins_genomes, dout_orthofinder, threads):
         "-t", str(threads), "-f", dout_orthofinder])
 
 def run_mafft(fin_aa_seqs, fout_aa_seqs_aligned):
-    print("started aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
+    # print("started aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
     mafft_cline = MafftCommandline(input = fin_aa_seqs)
     stdout, stderr = mafft_cline()
     with open(fout_aa_seqs_aligned, "w") as hout_aa_seqs_aligned:
         hout_aa_seqs_aligned.write(stdout)
-    print("finished aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
+    # print("finished aligning " + pathlib.PurePosixPath(fin_aa_seqs).stem)
 
 def run_mafft_parallel(fins_aa_seqs, fouts_aa_seqs_aligned):
     with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -395,7 +396,7 @@ def run_hmmbuild(fin_aa_seqs_aligned, fout_hmm):
         ["hmmbuild", fout_hmm, fin_aa_seqs_aligned],
         stdout = subprocess.PIPE,
     )
-    print("constructed profile of " + pathlib.PurePosixPath(fin_aa_seqs_aligned).stem)
+    # print("constructed profile of " + pathlib.PurePosixPath(fin_aa_seqs_aligned).stem)
 
 def run_hmmbuild_parallel(fins_aa_seqs_aligned, fouts_hmms):
     with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -404,7 +405,7 @@ def run_hmmbuild_parallel(fins_aa_seqs_aligned, fouts_hmms):
         )
 
 def run_hmmpress(fins_hmms, dout_hmm_db):
-    print("pressing hmm database for " + str(len(fins_hmms)) + " gene families")
+    print("  pressing hmm database for " + str(len(fins_hmms)) + " gene families")
     fout_hmm_db = dout_hmm_db + "/hmm_db"
     subprocess.run(
         " ".join(["cat"] + fins_hmms + [">", fout_hmm_db]),
@@ -698,9 +699,10 @@ def parse_arguments():
 
 if __name__ == "__main__":
 
-    print("\nhi, this is progenomics version 0.9.0\n")
-
     args = parse_arguments()
+
+    print("\nhi, this is progenomics version 0.9.0\n")
+    print("task: " + args.task + "\n")
 
     if args.task == "construct_profile_db":
 
@@ -722,39 +724,48 @@ if __name__ == "__main__":
         # create directories
         os.makedirs(dout_cand_scgs, exist_ok = True)
 
-        # 1) select seeds and construct gene families
-        fins_genomes = read_paths(args.fin_genomepaths)
-        fins_seeds = random.sample(fins_genomes, int(args.n_seed_genomes))
-        run_orthofinder(fins_seeds, dout_orthofinder, args.threads)
+        # read genomepaths
+        fins_genomes = read_paths(args.fin_genomepaths)        
 
-        # 2) identify candidate scgs
-        dout_orthofinder_results = glob.glob(dout_orthofinder + "/Results_*")[0]
-        taxon = read_orthogroups(dout_orthofinder_results)
-        orthogroups = select_orthogroups(taxon, int(args.min_presence_in_seeds))
+        # 1) get-pangenome (of seeds)
+        if os.path.exists(dout_orthofinder):
+            print("orthofinder dir found; skipping pangenome construction")
+        else:
+            print("constructing pangenome")
+            fins_seeds = random.sample(fins_genomes, int(args.n_seed_genomes))
+            run_orthofinder(fins_seeds, dout_orthofinder, args.threads)
 
-        # define file lists for candidate scgs
-        dout_orthofinder_ogs = glob.glob(dout_orthofinder_results + "/Orthologues_*/Sequences")[0]
-        fouts_cand_scg_seqs = [dout_orthofinder_ogs + "/" + orthogroup.name + ".fa"
-            for orthogroup in orthogroups]
+        # 2) create-db
+        if os.path.exists(dout_hmm_db):
+            print("hmm db found; skipping database creation")
+        else:
+            print("creating hmm database")
+            dout_orthofinder_results = glob.glob(dout_orthofinder + "/Results_*")[0]
+            taxon = read_orthogroups(dout_orthofinder_results)
+            orthogroups = select_orthogroups(taxon, int(args.min_presence_in_seeds))
+            dout_orthofinder_ogs = glob.glob(dout_orthofinder_results + "/Orthologues_*/Sequences")[0]
+            fouts_cand_scg_seqs = [dout_orthofinder_ogs + "/" + orthogroup.name + ".fa"
+                for orthogroup in orthogroups]
+            construct_profile_db(fouts_cand_scg_seqs, dout_cand_scgs)
 
-        # 3) scan orthogroups in all genomes
-        construct_profile_db(fouts_cand_scg_seqs, dout_cand_scgs)
-        # print("unzipping all genomes") # to probably remove
-        # run_gunzip_parallel(fins_genomes) # to probably remove
-        print("performing hmmer search")
-        # fins_genomes_unzipped = [str(pathlib.PurePosixPath(fin).with_suffix(""))
-        #     for fin in fins_genomes] # to probably remove
-        fins_genomes_unzipped = fins_genomes # replaces prev two lines
-        run_hmmsearch(dout_hmm_db, fins_genomes_unzipped, fout_cand_scg_domtbl)
-        # print("rezipping all genomes") # to probably remove
-        # run_gzip_parallel(fins_genomes_unzipped) # to probably remove
-        print("reading hmmer domtbl")
-        domtbl = read_domtbl(fout_cand_scg_domtbl)
-        print("creating score table")
-        score_table = process_domtbl(domtbl, fins_genomes)
-        score_table.to_csv(fout_score_table)
-        print("constructing scg table")
-        train_hmmer_cutoffs(fout_score_table, fout_candidate_scg_table)
+        # 3) search-ogs
+        if os.path.exists(fout_cand_scg_domtbl):
+            print("hmmer domtbl found; skipping hmmer search")
+        else:
+            print("performing hmmer search") 
+            run_hmmsearch(dout_hmm_db, fins_genomes, fout_cand_scg_domtbl)
+        if os.path.exists(fout_score_table):
+            print("score table found; skipping score table construction")
+        else:
+            print("creating score table")
+            domtbl = read_domtbl(fout_cand_scg_domtbl)
+            score_table = process_domtbl(domtbl, fins_genomes)
+            score_table.to_csv(fout_score_table)
+        if os.path.exists(fout_candidate_scg_table):
+            print("scg table found; skipping scg table construction")
+        else:
+            print("constructing scg table")
+            train_hmmer_cutoffs(fout_score_table, fout_candidate_scg_table)
 
     elif args.task == "select_scgs":
 
