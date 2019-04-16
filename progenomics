@@ -766,44 +766,66 @@ if __name__ == "__main__":
         else:
             print("constructing scg table")
             train_hmmer_cutoffs(fout_score_table, fout_candidate_scg_table)
+            if not os.path.exists(fout_candidate_scg_table):
+                sys.exit("error in the creation of the scg table")
 
     elif args.task == "select_scgs":
 
-        print("selecting scgs")
-        select_scgs(args.fin_score_table, args.fin_candidate_scg_table,
-            args.candidate_scg_cutoff, args.fout_scg_list, args.fout_genome_table)
+        if os.path.exists(args.fout_scg_list):
+            print("scg list already exists - refusing to overwrite it")
+        else:
+            print("selecting scgs")
+            select_scgs(args.fin_score_table, args.fin_candidate_scg_table,
+                args.candidate_scg_cutoff, args.fout_scg_list, args.fout_genome_table)
+            if not os.path.exists(args.fout_scg_list):
+                sys.exit("error in the selection of scgs")
 
     elif args.task == "select_genomes":
 
-        print("selecting genomes")
-        select_genomes(args.fin_genome_table, args.completeness_cutoff,
-            args.redundancy_cutoff, args.fout_genome_list)
+        if os.path.exists(args.fout_genome_list):
+            print("genome list already exists - refusing to overwrite it")
+        else:
+            print("selecting genomes")
+            select_genomes(args.fin_genome_table, args.completeness_cutoff,
+                args.redundancy_cutoff, args.fout_genome_list)
+            if not os.path.exists(args.fout_genome_list):
+                sys.exit("error in the selection of genomes")
 
     elif args.task == "construct_scg_matrix":
 
-        print("constructing scg matrix")
-        construct_scg_matrix(args.fin_score_table, args.fin_candidate_scg_table,
-            args.fin_genome_list, args.fin_scg_list,
-            args.fout_scg_matrix)
+        if os.path.exists(args.fout_scg_matrix):
+            print("scg matrix already exists - refusing to overwrite it")
+        else:
+            print("constructing scg matrix")
+            construct_scg_matrix(args.fin_score_table, args.fin_candidate_scg_table,
+                args.fin_genome_list, args.fin_scg_list,
+                args.fout_scg_matrix)
+            if not os.path.exists(args.fout_scg_matrix):
+                sys.exit("error in the scg matrix construction")
 
     elif args.task == "nucleotide_supermatrix_from_scg_matrix":
 
-        print("extracting scg nucleotides")
-        extract_scc_sequences(args.fin_scg_matrix, args.din_ffns, args.dout + "/scgs_nucs")
-        print("extracting scg amino acids")
-        extract_scc_sequences(args.fin_scg_matrix, args.din_faas, args.dout + "/scgs_aas")
-        print("aligning scg amino acids")
-        fins_scgs_aas = glob.glob(args.dout + "/scgs_aas/*.fasta")
-        os.makedirs(args.dout + "/scgs_aas_aligned", exist_ok = True)
-        fouts_scgs_aas_aligned = [args.dout + "/scgs_aas_aligned/" + pathlib.Path(path).stem + ".aln"
-            for path in fins_scgs_aas]
-        run_mafft_parallel(fins_scgs_aas, fouts_scgs_aas_aligned)
-        print("aligning scg nucleotides using amino acid alignments")
-        align_ogs_nucs(args.dout + "/scgs_nucs", args.dout + "/scgs_aas_aligned",
-            args.dout + "/scgs_nucs_aligned")
-        print("constructing supermatrix")
-        construct_supermatrix(args.fin_scg_matrix, args.dout + "/scgs_nucs_aligned",
-            args.dout + "/supermatrix_nucs.fasta")
+        if os.path.exists(args.dout + "/supermatrix_nucs.fasta"):
+            print("supermatrix already exists - refusing to overwrite it")
+        else:
+            print("extracting scg nucleotides")
+            extract_scc_sequences(args.fin_scg_matrix, args.din_ffns, args.dout + "/scgs_nucs")
+            print("extracting scg amino acids")
+            extract_scc_sequences(args.fin_scg_matrix, args.din_faas, args.dout + "/scgs_aas")
+            print("aligning scg amino acids")
+            fins_scgs_aas = glob.glob(args.dout + "/scgs_aas/*.fasta")
+            os.makedirs(args.dout + "/scgs_aas_aligned", exist_ok = True)
+            fouts_scgs_aas_aligned = [args.dout + "/scgs_aas_aligned/" + pathlib.Path(path).stem + ".aln"
+                for path in fins_scgs_aas]
+            run_mafft_parallel(fins_scgs_aas, fouts_scgs_aas_aligned)
+            print("aligning scg nucleotides using amino acid alignments")
+            align_ogs_nucs(args.dout + "/scgs_nucs", args.dout + "/scgs_aas_aligned",
+                args.dout + "/scgs_nucs_aligned")
+            print("constructing supermatrix")
+            construct_supermatrix(args.fin_scg_matrix, args.dout + "/scgs_nucs_aligned",
+                args.dout + "/supermatrix_nucs.fasta")
+            if not os.path.exists(args.dout + "/supermatrix_nucs.fasta"):
+                sys.exit("error in the supermatrix construction")
 
     else:
 
