@@ -73,7 +73,7 @@ Progenomics is also capable of producing a concatenated nucleotide alignment of 
     progenomics nucleotide_supermatrix_from_scg_matrix \
       --fin_scg_matrix scg_matrix.csv \
       --din_ffns dir_with_ffns \
-      --din_faas genomes \
+      --din_faas dir_with_faas \
       --dout ./
 
 ## Pangenome pipeline
