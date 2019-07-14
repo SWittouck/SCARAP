@@ -6,19 +6,26 @@ Progenomics depends on [OrthoFinder](https://github.com/davidemms/OrthoFinder) f
 
 ## Dependencies
 
+Tools for the (hopefully) painless installation of the dependencies:
+
+* [anaconda](https://www.anaconda.com/distribution/#download-section) version >= 2019.3
+* pip3 (sudo apt install pip3)
+
+The actual dependencies, with suggested installation instructions: 
+
 * [Python3](https://www.python.org/) version >= 3.6.7
 * Python libraries:
-    * [Biopython](https://biopython.org/) version >= 1.67
-    * [pandas](https://pandas.pydata.org/) version >= 0.24.1
-* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0
-* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137
-* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2
-* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
-* [HMMER](http://hmmer.org/) version >= 3.1b2,
+    * [Biopython](https://biopython.org/) version >= 1.67 (pip3 install biopython)
+    * [pandas](https://pandas.pydata.org/) version >= 0.24.1 (pip3 install pandas)
+* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0 (conda install -c bioconda blast)
+* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137 (conda install -c bioconda mcl)
+* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2 (conda install -c bioconda orthofinder)
+* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407 (conda install -c bioconda mafft)
+* [HMMER](http://hmmer.org/) version >= 3.1b2 (conda install -c bioconda hmmer)
 * [R](https://www.r-project.org/) version >= 3.5.1
 * R packages:
-    * ROCR version >= 1.0.7
-    * tidyverse version >= 1.2.1
+    * ROCR version >= 1.0.7 (install.packages("ROCR"))
+    * tidyverse version >= 1.2.1 (install.packages("tidyverse"))
 
 ## Core genome pipeline
 
