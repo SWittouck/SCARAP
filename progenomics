@@ -701,7 +701,7 @@ if __name__ == "__main__":
 
     args = parse_arguments()
 
-    print("\nhi, this is progenomics version 0.9.0\n")
+    print("\nhi, this is progenomics version 0.1.0\n")
     print("task: " + args.task + "\n")
 
     if args.task == "construct_profile_db":
