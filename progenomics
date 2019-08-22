@@ -815,13 +815,16 @@ if __name__ == "__main__":
             print("aligning scg amino acids")
             fins_scgs_aas = glob.glob(args.dout + "/scgs_aas/*.fasta")
             os.makedirs(args.dout + "/scgs_aas_aligned", exist_ok = True)
-            fouts_scgs_aas_aligned = [args.dout + "/scgs_aas_aligned/" + pathlib.Path(path).stem + ".aln"
-                for path in fins_scgs_aas]
+            fouts_scgs_aas_aligned = [args.dout + "/scgs_aas_aligned/" + 
+                pathlib.Path(path).stem + ".aln" for path in fins_scgs_aas]
             run_mafft_parallel(fins_scgs_aas, fouts_scgs_aas_aligned)
+            print("constructing protein supermatrix")
+            construct_supermatrix(args.fin_scg_matrix, args.dout + "/scgs_aas_aligned",
+                args.dout + "/supermatrix_aas.fasta")
             print("aligning scg nucleotides using amino acid alignments")
             align_ogs_nucs(args.dout + "/scgs_nucs", args.dout + "/scgs_aas_aligned",
                 args.dout + "/scgs_nucs_aligned")
-            print("constructing supermatrix")
+            print("constructing dna supermatrix")
             construct_supermatrix(args.fin_scg_matrix, args.dout + "/scgs_nucs_aligned",
                 args.dout + "/supermatrix_nucs.fasta")
             if not os.path.exists(args.dout + "/supermatrix_nucs.fasta"):
