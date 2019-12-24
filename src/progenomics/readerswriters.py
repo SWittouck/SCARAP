@@ -138,7 +138,8 @@ def collapse_pangenome(pangenomefin, faapathsfin, reprsfout, famprefix,
 
 """
 Function to construct a supermatrix given alignments of individual single-copy
-core orthogroups.
+core orthogroups. If there are two or more copies of an orthogroup in a genome,
+all copies will be dropped.
 Input:
   - coregenome: DataFrame with columns gene, genome, orthogroup
   - alifins: input files with alignments of single-copy core orthogroups
@@ -163,10 +164,8 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
         for record in SeqIO.parse(alifin, "fasta"):
             alilen = len(record.seq)
             sequencedict[record.id] = record.seq
+        rows = rows.drop_duplicates("genome", keep = False)
         rows = pd.merge(pd.DataFrame({"genome": genomes}), rows, how = "left")
-        if len(rows) > n_genomes:
-            continue
-        n_fams_sc = n_fams_sc + 1
         for ix, row in rows.iterrows():
             sequence_to_add = sequencedict.get(row.gene, "-" * alilen)
             supermatrix[row.genome] = supermatrix[row.genome] + sequence_to_add
@@ -174,7 +173,3 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
     with open(supermatrixfout, "a") as supermatrixhout:
         for genome in supermatrix:
             SeqIO.write(supermatrix[genome], supermatrixhout, "fasta")
-
-    logging.info(f"supermatrix created from {n_fams_sc} single-copy "
-        f"orthogroups out of {len(set(coregenome.orthogroup))} total core "
-        "orthogroups")
