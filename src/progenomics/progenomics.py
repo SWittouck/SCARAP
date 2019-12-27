@@ -4,7 +4,7 @@
 # interface.
 
 __author__ = "Stijn Wittouck"
-__version__ = "1.0.0"
+__version__ = "0.2.0"
 
 import argparse
 import logging
@@ -24,18 +24,19 @@ AUTHORS
 USAGE
     progenomics [-h] <task> <task-specific arguments>
 TASKS
-    pan           --> infer a pangenome from faa files
-    build         --> build an profile database from a pangenome
-    search        --> search query genes in a pangenome database
+    pan           --> infer a pangenome from a set of faa files
+    build         --> build a profile HMM database for a core/pangenome
+    search        --> search query genes in a core/pangenome database
     checkgenomes  --> assess the quality of genomes in a core genome
     checkgroups   --> assess the quality of orthogroups in a core genome
     filter        --> filter the genomes/orthogroups in a pangenome
     supermatrix   --> construct a concatenated core orthogroup alignment from a
                       core genome
 PIPELINES
-    pan-pipeline  --> infer a pangenome, build a profile database and train
-                      score cutoffs from faa files
-    core-pipeline --> infer a core genome from faa files
+    pan-pipeline  --> infer a pangenome, build a profile HMM database and train
+                      score cutoffs from a set of faa files
+    core-pipeline --> infer a core genome, build a profile HMM database and
+                      train score cutoffs from a set of faa files
 DOCUMENTATION
     https://github.com/swittouck/progenomics\
 '''
