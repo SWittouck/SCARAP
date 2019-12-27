@@ -1,91 +1,117 @@
 # Progenomics: toolkit for prokaryotic comparative genomics
 
-Progenomics is a general toolkit-under-construction for comparative genomics of prokaryotes. It should be able to handle large genome datasets of small to medium sequence divergence (i.e., genomes from the same species, genus, family and possibly order). What is currently implemented is a pipeline to get the __core genome__ for up to thousands of genomes overnight on a decent desktop computer. A __pangenome pipeline__ is planned for the near future.
+Progenomics is a toolkit-under-construction for comparative genomics of prokaryotes. It should be able to handle large genome datasets of small to medium sequence divergence (i.e., genomes from the same species, genus, family and possibly order). Its most useful feature at the moment is probably that it is able to quickly infer the core genome of a large set of genomes without having to infer the pangenome as an intermediate step.
 
-Progenomics depends on [OrthoFinder](https://github.com/davidemms/OrthoFinder) for gene family inference. 
+Progenomics depends on [OrthoFinder](https://github.com/davidemms/OrthoFinder) for some of its functionalities.
 
 ## Dependencies
 
-Tools for the (hopefully) painless installation of the dependencies:
-
-* [anaconda](https://www.anaconda.com/distribution/#download-section) version >= 2019.3
-* pip3 (sudo apt install pip3)
-
-The actual dependencies, with suggested installation instructions: 
+Dependencies with suggested installation instructions:
 
 * [Python3](https://www.python.org/) version >= 3.6.7
 * Python libraries:
-    * [Biopython](https://biopython.org/) version >= 1.67 (pip3 install biopython)
-    * [pandas](https://pandas.pydata.org/) version >= 0.24.1 (pip3 install pandas)
-* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0 (conda install -c bioconda blast)
-* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137 (conda install -c bioconda mcl)
-* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2 (conda install -c bioconda orthofinder)
-* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407 (conda install -c bioconda mafft)
-* [HMMER](http://hmmer.org/) version >= 3.1b2 (conda install -c bioconda hmmer)
-* [R](https://www.r-project.org/) version >= 3.5.1
-* R packages:
-    * ROCR version >= 1.0.7 (install.packages("ROCR"))
-    * tidyverse version >= 1.2.1 (install.packages("tidyverse"))
+    * [Biopython](https://biopython.org/) version >= 1.67 (`pip3 install biopython`)
+    * [pandas](https://pandas.pydata.org/) version >= 0.24.1 (`pip3 install pandas`)
+* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0 (`conda install -c bioconda blast`)
+* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137 (`conda install -c bioconda mcl`)
+* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2 (`conda install -c bioconda orthofinder`)
+* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407 (`conda install -c bioconda mafft`)
+* [HMMER](http://hmmer.org/) version >= 3.1b2 (`conda install -c bioconda hmmer`)
 
-## Core genome pipeline
+## Usage
 
-**How it works**
+Progenomics is able to perform a number of specific tasks related to prokaryotic core and pangenomes (see also `progenomics -h`):
 
-Progenomics works in four stages to be able to rapidly determine single-copy core genes (SCGs) for large genome datasets:
+* `pan`: infer a pangenome from a set of faa files
+* `build`: build a profile HMM database for a core/pangenome
+* `search`: search query genes in a core/pangenome database
+* `checkgenomes`: assess the quality of genomes in a core genome
+* `checkgroups`: assess the quality of orthogroups in a core genome
+* `filter`: filter the genomes/orthogroups in a pangenome
+* `supermatrix`: construct a concatenated core orthogroup alignment from a core genome
 
-1. Gene family inference on a small, random subset of N (e.g. 30) seed genomes, using OrthoFinder. 
-2. Selection of candidate SCGs by requiring single-copy presence in at least K (e.g. 25) out of N seed genomes. 
-3. Search for the candidate SCGs in all genomes, using HMMER, and training of SCG-specific score cutoffs.  
-4. Selection of the definitive SCGs by enforing that a candidate SCG is present in a single copy in P% (e.g. 95%) of all genomes.
+A full core and pangenome pipeline are also implemented:
 
-**Tutorial**
+* `pan-pipeline`: infer a pangenome, build a profile HMM database and train score cutoffs from a set of faa files
+* `core-pipeline`: infer a core genome, build a profile HMM database and train score cutoffs from a set of faa files
 
-In his workflow, we start from a set of genomes (up to ~ 3000 if you want to run overnight on a decent desktop computer) and we want to extract a complete set of single-copy core genes (SCGs) of those genomes. As input data, we need to have a set of predicted protein sequences (.faa file) for each genome. We need to supply the __paths to these .faa files__ to progenomics as a single txt file (files should be uncompressed). If all .faa files are in the same folder, we can create such a file as follows:
+### Core genome pipeline
 
-    ls genomes/*.faa > genomepaths.txt
+Let's say we want to infer the core genome for a set of prokaryotic genomes and we have one faa file (amino acid sequences of predicted genes) per genome in the folder `faas`.
 
-Next, we extract candidate SCGs from the genomes and search for them in the complete genome dataset (__steps 1 - 3__). Candidate SCGs are gene families that are present in a single copy in at least K genomes out of N randomly chosen seed genomes. We could set K to 25 and N to 30, for example:
+**Quick version**
 
-    progenomics prepare_candidate_scgs \
-     --fin_genomepaths genomepaths.txt \
-     --n_seed_genomes 30 \
-     --min_presence_in_seeds 25 \
-     --dout cand_scgs \
-     --threads 8
+To get the core genome, we can simply run the following commands:
 
-We now select the definitive SCGs from the candidates by requiring that they are present in a single copy in P% of the total number of genomes (__step 4__). For P = 95, this gives us:
+    ls faas/*.faa > faapaths.txt
+    progenomics core-pipeline faapaths.txt core -t 16
 
-    progenomics select_scgs \
-     --fin_score_table cand_scgs/score_table.csv \
-     --fin_candidate_scg_table cand_scgs/candidate_scg_table.csv \
-     --candidate_scg_cutoff 0.95 \
-     --fout_scg_list scg_list.txt \
-     --fout_genome_table genome_table.csv
+This will create the output folder `core`, run progenomics with 16 threads and produce the file `coregenome.tsv`. This output tsv file contains the core orthogroups and has the columns gene, genome and orthogroup.
 
-As a result, we get two output files: a list with SCG names and a table with for each genome, the percentage "completeness" and "redundancy"; those two measures can be used for __genome quality filtering__. For this demonstration, we keep all of our genomes and save their names in a txt file:
+If we now want to construct a supermatrix (concatenated alignment) of these core orthogroups, we could do it as follows:
 
-    cut -d , -f 1 genome_table.csv | tail -n +2 > selected_genomes.txt
+    progenomics supermatrix faapaths.txt core/coregenome.tsv supermatrix
 
-Finally, we can construct a __SCG matrix__ where the rows are genomes, the columns are SCGs and the cells contain the actual names of individual genes:
+This will create a `supermatrix` output folder, with in it a file supermatrix.fasta.
 
-    progenomics construct_scg_matrix \
-     --fin_score_table cand_scgs/score_table.csv \
-     --fin_candidate_scg_table cand_scgs/candidate_scg_table.csv \
-     --fin_genome_list selected_genomes.txt \
-     --fin_scg_list scg_list.txt \
-     --fout_scg_matrix scg_matrix.csv
+And that's it! Three lines of code to get from the faa files to the supermatrix fasta file, ready to start constructing your phylogenetic tree.
 
-Progenomics is also capable of producing a concatenated nucleotide alignment of the SCGs by aligning the amino acid sequences, backtranslating the alignments to alignments of nucleic acid sequences and concatenating these. For this purpose, we do of course need the nucleotide sequences of the genes (ffn files). 
- 
-    progenomics nucleotide_supermatrix_from_scg_matrix \
-      --fin_scg_matrix scg_matrix.csv \
-      --din_ffns dir_with_ffns \
-      --din_faas dir_with_faas \
-      --dout ./
+**Detailed version**
 
-## Pangenome pipeline
+If we want more fine-grained control, we could achieve the same result by running individual progenomics tasks. These individual tasks also give insight in how the core genome pipeline actually works.
 
-Coming soon!
+**Step 1:** infer the pangenome of a random subset of seed genomes (e.g. 30).
+
+    mkdir seeds cands
+    ls faas/*.faa > faapaths.txt
+    shuf -n 30 faapaths.txt > seeds/faapaths.txt
+    progenomics pan seeds/faapaths.txt seeds/pan
+
+**Step 2:** build a profile HMM database of "candidate core orthogroups" that are present in at least M seed genomes (e.g. 25).
+
+    progenomics build seeds/faapaths.txt seeds/pan/pangenome.tsv cands/db -m 25
+
+**Step 3:** identify the candidate core genes in the full set of genomes by searching all proteins of all genomes against the database of candidate core genes.
+
+    progenomics search faapaths.txt cands/db cands/core -y core
+
+**Step 4:** identify the core genes from the candidates by imposing a minimum percentage presence cutoff (e.g. 98%) in the full set of genomes.
+
+    progenomics checkgroups cands/core/coregenome.tsv cands/groups
+    awk '{ if ($2 > 0.98) { print $1 } }' cands/groups/orthogroups.tsv \
+      > orthogroups.txt
+    progenomics filter cands/core/coregenome.tsv core -o orthogroups.txt
+
+The output folder `core` will now contain the file coregenome.tsv.
+
+### Pangenome pipeline
+
+Disclaimer: this pipeline is still in active development. Parts of it can still change drastically, especially the way that hmmer score cutoffs are trained.
+
+**Quick version**
+
+If you want to infer a pangenome of your genomes as well as build a pangenome database that you can later query with one or more genes of interest, you can run:
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan-pipeline faapaths.txt pan -t 16
+
+If you then want to identify whether some genes of interest (let's say in a file called `querygenes.fasta`) are present in the pangenome database, you can run:
+
+    echo querygenes.fasta > querypath.txt
+    progenomics search querypath.txt pangenome/db hits
+
+This will produce a `hits` output folder with the file `hits.tsv`.
+
+**Detailed version**
+
+The pangenome pipeline can also be performed by running individual tasks:
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan faapaths.txt pan
+    progenomics build faapaths.txt pan/pangenome.tsv db
+    progenomics search faapaths.txt db pan2 -s pan -p pan/pangenome.tsv
+
+The final `search` step is required because it will train a hmmer score cutoff for each profile HMM in the pangenome database and add these cutoffs to the database. In addition, it produces an orthogroup assignment for each protein in the set of input genomes (`pan2/hits.tsv`). Importantly, these assignments are not always the same as the orthogroup assignments listed in `pan/pangenome.tsv` because they are produced by a hmmer search with orthogroup-specific cutoffs, while the original orthogroup assignments have been produced by the pangenome inference process. A comparison between these two strategies of orthogroup assignment could be interesting.
 
 ## License
 
@@ -93,12 +119,15 @@ Progenomics is free software, licensed under [GPLv3](https://github.com/sanger-p
 
 ## Feedback
 
-All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. You are of course also welcome to file [issues](https://github.com/SWittouck/progenomics/issues). 
+All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. You are of course also welcome to file [issues](https://github.com/SWittouck/progenomics/issues).
 
 ## Citation
 
-If you use progenomics in your publication, please try to cite the following preprint:
+When you use progenomics for your publication, please cite:
 
-[Wittouck, Stijn, Sander Wuyts, Conor J Meehan, Vera van Noort, and Sarah Lebeer. 2019. “A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex.” BioRxiv, January, 537084. doi:10.1101/537084.](https://www.biorxiv.org/content/10.1101/537084v1) 
+[Wittouck, Stijn, Sander Wuyts, Conor J Meehan, Vera van Noort, and Sarah Lebeer. 2019. “A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex.” Edited by Sean M
+Gibbons. MSystems 4 (5): e00264-19. https://doi.org/10.1128/mSystems.00264-19.](https://doi.org/10.1128/mSystems.00264-19)
 
-If citing preprints is not allowed for your journal, don't worry about it. Hopefully, a peer-reviewed publication will be available soon! 
+Please also cite OrthoFinder:
+
+[Emms, D.M., Kelly, S. OrthoFinder: phylogenetic orthology inference for comparative genomics. Genome Biol 20, 238 (2019)](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1832-y)
