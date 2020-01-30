@@ -181,7 +181,10 @@ def run_search_nb(args):
     logging.info("performing hmmsearch")
     queryfins = read_lines(args.qpaths)
     domtblfio = os.path.join(args.outfolder, "hmmer_domtbl.tmp")
-    run_hmmsearch(args.db, queryfins, domtblfio)
+    if os.path.isfile(domtblfio):
+        logging.info("existing hmmer domtbl detected - skipping hmmsearch")
+    else:
+        run_hmmsearch(args.db, queryfins, domtblfio)
     hits = read_domtbl(domtblfio)
     # write_tsv(hits, os.path.join(args.outfolder, "hits.tsv"))
     genes_genomes = extract_genes(queryfins)
