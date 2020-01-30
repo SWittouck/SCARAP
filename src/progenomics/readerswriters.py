@@ -41,7 +41,7 @@ def read_domtbl(fin_domtbl):
         names = ['gene', 'profile', 'score', 'hmm_from', 'hmm_to'],
         dtype = {'gene': str, 'profile': str, 'score': float, 'hmm_from': int,
             'hmm_to': int},
-        engine = 'python'
+        engine = 'c'
     )
     return(domtbl)
 
