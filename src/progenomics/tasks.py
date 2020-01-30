@@ -314,33 +314,62 @@ def run_supermatrix(args):
     logging.info("checking dependencies")
     check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
 
-    supermatrixfout = os.path.join(args.outfolder, "supermatrix.fasta")
-    if os.path.isfile(supermatrixfout):
-        logging.info("existing supermatrix detected - moving on")
-        return()
-
-    logging.info("creating output subfolders")
-    orthogroupsdio = os.path.join(args.outfolder, "orthogroups")
-    alignmentsdio = os.path.join(args.outfolder, "alignments")
-    os.makedirs(orthogroupsdio, exist_ok = True)
-    os.makedirs(alignmentsdio, exist_ok = True)
-
-    logging.info("gathering sequences of orthogroups")
-    coregenome = read_genes(args.coregenome)
-    faafins = read_lines(args.faapaths)
-    gather_orthogroup_sequences(coregenome, faafins, orthogroupsdio)
-    logging.info(f"gathered sequences for {len(os.listdir(orthogroupsdio))} "
-        f"core orthogroups")
-
-    logging.info("aligning orthogroups")
+    sm_aas_fout = os.path.join(args.outfolder, "supermatrix_aas.fasta")
+    sm_nucs_fout = os.path.join(args.outfolder, "supermatrix_nucs.fasta")
+    seqs_aas_dio = os.path.join(args.outfolder, "seqs_aas")
+    seqs_nucs_dio = os.path.join(args.outfolder, "seqs_nucs")
+    alis_aas_dio = os.path.join(args.outfolder, "alis_aas")
+    alis_nucs_dio = os.path.join(args.outfolder, "alis_nucs")
     orthogroups = [os.path.splitext(file)[0] for file in
-        os.listdir(orthogroupsdio)]
-    orthogroupfouts = make_paths(orthogroups, orthogroupsdio, ".fasta")
-    alifouts = make_paths(orthogroups, alignmentsdio, ".aln")
-    run_mafft_parallel(orthogroupfouts, alifouts)
+        os.listdir(seqs_aas_dio)]
+    seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
+    seqs_nucs_fios = make_paths(orthogroups, seqs_nucs_dio, ".fasta")
+    alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
+    alis_nucs_fios = make_paths(orthogroups, alis_nucs_dio, ".aln")
 
-    logging.info("concatenating alignments")
-    construct_supermatrix(coregenome, alifouts, supermatrixfout)
+    if os.path.isfile(sm_aas_fout):
+
+        logging.info("existing amino acid supermatrix detected - moving on")
+
+    else:
+
+        logging.info("creating output subfolders")
+        os.makedirs(seqs_aas_dio, exist_ok = True)
+        os.makedirs(alis_aas_dio, exist_ok = True)
+
+        logging.info("gathering amino acid sequences of orthogroups")
+        coregenome = read_genes(args.coregenome)
+        faa_fins = read_lines(args.faapaths)
+        gather_orthogroup_sequences(coregenome, faa_fins, seqs_aas_dio)
+        logging.info(f"gathered sequences for {len(os.listdir(seqs_aas_dio))} "
+            f"core orthogroups")
+
+        logging.info("aligning orthogroups on the amino acid level")
+        run_mafft_parallel(seqs_aas_fios, alis_aas_fios)
+
+        logging.info("concatenating amino acid alignments")
+        construct_supermatrix(coregenome, alis_aas_fios, sm_aas_fout)
+
+    if not args.ffnpaths is None and os.path.isfile(sm_nucs_fout):
+
+        logging.info("existing nucleotide supermatrix detected - moving on")
+
+    if not args.ffnpaths is None and not os.path.isfile(sm_nucs_fout):
+
+        logging.info("creating output subfolders")
+        os.makedirs(seqs_nucs_dio, exist_ok = True)
+        os.makedirs(alis_nucs_dio, exist_ok = True)
+
+        logging.info("gathering nucleotide sequences of orthogroups")
+        coregenome = read_genes(args.coregenome)
+        ffn_fins = read_lines(args.ffnpaths)
+        gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
+
+        logging.info("aligning orthogroups on the nucleotide level")
+        reverse_align_parallel(seqs_nucs_fios, alis_aas_fios, alis_nucs_fios)
+
+        logging.info("concatenating nucleotide alignments")
+        construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
 
 def run_pan_pipeline(args):
 

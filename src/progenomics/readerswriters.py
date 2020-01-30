@@ -1,3 +1,4 @@
+import concurrent.futures
 import glob
 import logging
 import os
@@ -173,3 +174,29 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
     with open(supermatrixfout, "a") as supermatrixhout:
         for genome in supermatrix:
             SeqIO.write(supermatrix[genome], supermatrixhout, "fasta")
+
+"""
+Function to align a nucleotide fasta using an amino acid fasta as a reference
+alignment.
+Arguments:
+  - fin_og_nucs: nucleotide fasta to align (.fasta)
+  - fin_og_aas_aligned: amino acid fasta that is aligned (.aln)
+  - fout_og_nucs_aligned: file to store the aligned nucleotide fasta (.aln)
+"""
+def reverse_align_helper(fin_og_nucs, fin_og_aas_aligned, fout_og_nucs_aligned):
+    og_nucs = list(SeqIO.parse(fin_og_nucs, "fasta"))
+    og_aas_aligned = list(SeqIO.parse(fin_og_aas_aligned, "fasta"))
+    og_nucs_aligned = reverse_align(og_nucs, og_aas_aligned)
+    with open(fout_og_nucs_aligned, "w") as hout_og_nucs_aligned:
+        SeqIO.write(og_nucs_aligned, hout_og_nucs_aligned, "fasta")
+
+"""
+Function to align a set of nucleotide fastas using a set of amino acid fastas
+as reference alignments.
+"""
+def reverse_align_parallel(fins_ogs_nucs, fins_ogs_aas_aligned,
+    fouts_ogs_nucs_aligned):
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(reverse_align_helper, fins_ogs_nucs, fins_ogs_aas_aligned,
+            fouts_ogs_nucs_aligned)

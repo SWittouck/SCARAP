@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 
+from Bio import SeqRecord
 from statistics import mean
 
 def make_paths(filenames, folder, extension):
@@ -88,3 +89,38 @@ def filter_groups(pangenome, orthogroups):
 def select_representative(records):
     records = sorted(records, key = lambda x: len(x))
     return(records[len(records) // 2])
+
+"""
+Function to align a SeqRecord of nucleotide sequences, given a SeqRecord
+of aligned amino acid sequences.
+Input:
+  - og_nucs: SeqRecord of nucleotide sequences to align
+  - og_aas_aligned = SeqRecord of amino acid sequences that are aligned
+    (reference alignment)
+Output:
+  - SeqRecord of aligned nucleotide sequences
+Naming:
+  - sr = SeqRecord (Biopython)
+  - og = orthogroup
+  - nucs = nucleotides
+  - aas = amino acids
+"""
+def reverse_align(og_nucs, og_aas_aligned):
+    og_aas_aligned = {seq.id: seq.seq for seq in og_aas_aligned}
+    og_nucs_aligned = []
+    for nucs_sr in og_nucs:
+        nucs_id = nucs_sr.id
+        nucs_seq = nucs_sr.seq
+        aas_gapped_seq = og_aas_aligned[nucs_id]
+        nucs_gapped_seq = ""
+        nucs_pos = 0
+        for aa in aas_gapped_seq:
+            if aa == "-":
+                nucs_gapped_seq += "---"
+            else:
+                nucs_gapped_seq += nucs_seq[nucs_pos:(nucs_pos + 3)]
+                nucs_pos += 3
+        nucs_gapped_sr = SeqRecord.SeqRecord(id = nucs_id,
+            seq = nucs_gapped_seq, description = "")
+        og_nucs_aligned.append(nucs_gapped_sr)
+    return(og_nucs_aligned)

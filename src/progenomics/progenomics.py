@@ -47,7 +47,7 @@ def print_intro():
 
     message = '''\
 
-  This is progenomics version {0}
+This is progenomics version {0}
 '''
 
     print(message.format(__version__))
@@ -152,6 +152,8 @@ def parse_arguments():
         help = "input file with paths to ffn files of genomes; if given, "
             "a nucleotide supermatrix will be constructed in addition to the "
             "amino acid suprmatrix")
+    parser_supermatrix.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
         parents = [parser_pan_parent])
