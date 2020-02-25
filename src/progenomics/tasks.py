@@ -25,7 +25,7 @@ def run_pan_nonhier(args):
 
     logging.info("creating orthofinder directory")
     dir_orthofinder = os.path.join(args.outfolder, "orthofinder")
-    os.makedirs(dir_orthofinder)
+    os.makedirs(dir_orthofinder, exist_ok = True)
 
     logging.info("running orthofinder")
     faafins = read_lines(args.faapaths)
