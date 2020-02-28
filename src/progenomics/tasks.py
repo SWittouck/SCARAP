@@ -320,6 +320,11 @@ def run_supermatrix(args):
     seqs_nucs_dio = os.path.join(args.outfolder, "seqs_nucs")
     alis_aas_dio = os.path.join(args.outfolder, "alis_aas")
     alis_nucs_dio = os.path.join(args.outfolder, "alis_nucs")
+
+    logging.info("creating output subfolders")
+    os.makedirs(seqs_aas_dio, exist_ok = True)
+    os.makedirs(alis_aas_dio, exist_ok = True)
+
     orthogroups = [os.path.splitext(file)[0] for file in
         os.listdir(seqs_aas_dio)]
     seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
@@ -332,10 +337,6 @@ def run_supermatrix(args):
         logging.info("existing amino acid supermatrix detected - moving on")
 
     else:
-
-        logging.info("creating output subfolders")
-        os.makedirs(seqs_aas_dio, exist_ok = True)
-        os.makedirs(alis_aas_dio, exist_ok = True)
 
         logging.info("gathering amino acid sequences of orthogroups")
         coregenome = read_genes(args.coregenome)
