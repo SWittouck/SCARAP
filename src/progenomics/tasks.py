@@ -325,13 +325,6 @@ def run_supermatrix(args):
     os.makedirs(seqs_aas_dio, exist_ok = True)
     os.makedirs(alis_aas_dio, exist_ok = True)
 
-    orthogroups = [os.path.splitext(file)[0] for file in
-        os.listdir(seqs_aas_dio)]
-    seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
-    seqs_nucs_fios = make_paths(orthogroups, seqs_nucs_dio, ".fasta")
-    alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
-    alis_nucs_fios = make_paths(orthogroups, alis_nucs_dio, ".aln")
-
     if os.path.isfile(sm_aas_fout):
 
         logging.info("existing amino acid supermatrix detected - moving on")
@@ -346,6 +339,10 @@ def run_supermatrix(args):
             f"core orthogroups")
 
         logging.info("aligning orthogroups on the amino acid level")
+        orthogroups = [os.path.splitext(file)[0] for file in
+            os.listdir(seqs_aas_dio)]
+        seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
+        alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
         run_mafft_parallel(seqs_aas_fios, alis_aas_fios)
 
         logging.info("concatenating amino acid alignments")
@@ -367,6 +364,11 @@ def run_supermatrix(args):
         gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
 
         logging.info("aligning orthogroups on the nucleotide level")
+        orthogroups = [os.path.splitext(file)[0] for file in
+            os.listdir(seqs_aas_dio)]
+        seqs_nucs_fios = make_paths(orthogroups, seqs_nucs_dio, ".fasta")
+        alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
+        alis_nucs_fios = make_paths(orthogroups, alis_nucs_dio, ".aln")
         reverse_align_parallel(seqs_nucs_fios, alis_aas_fios, alis_nucs_fios)
 
         logging.info("concatenating nucleotide alignments")
