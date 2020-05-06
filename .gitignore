@@ -1,3 +1,8 @@
+data
 prev
-tests
+results
+src/compare_orthogroup_assignments.R
+src/compare_strategies.R
 src/progenomics/__pycache__
+src/tests_composite
+src/tests_core

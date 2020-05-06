@@ -10,8 +10,8 @@ import argparse
 import logging
 import sys
 
-from tasks import *
 from utils import *
+from taskwrappers import *
 
 def print_help():
 
@@ -80,10 +80,10 @@ def parse_arguments():
         help = "continue in existing output folder [default False]")
 
     parser_pan = subparsers.add_parser('pan', parents = [parser_pan_parent])
-    parser_pan.set_defaults(func = run_pan)
+    parser_pan.set_defaults(func = run_pan_withchecks)
 
     parser_build = subparsers.add_parser('build')
-    parser_build.set_defaults(func = run_build)
+    parser_build.set_defaults(func = run_build_withchecks)
     parser_build.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_build.add_argument("pangenome",
@@ -95,9 +95,11 @@ def parse_arguments():
             "to be included in the db [default 1]")
     parser_build.add_argument("-t", "--threads", default = 8, type = int,
         help = "number of threads to use [default 8]")
+    parser_build.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_search = subparsers.add_parser('search')
-    parser_search.set_defaults(func = run_search)
+    parser_search.set_defaults(func = run_search_withchecks)
     parser_search.add_argument("qpaths",
         help = "input file with paths to files with amino acid sequences of "
             "query genes")
@@ -114,34 +116,42 @@ def parse_arguments():
             "the 'pan' strategy")
     parser_search.add_argument("-o", "--orthogroups",
         help = "input file with subset of orthogroups in the database to use")
+    parser_search.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_checkgenomes = subparsers.add_parser("checkgenomes")
-    parser_checkgenomes.set_defaults(func = run_checkgenomes)
+    parser_checkgenomes.set_defaults(func = run_checkgenomes_withchecks)
     parser_checkgenomes.add_argument("coregenome",
         help = "input file with a core genome")
     parser_checkgenomes.add_argument("outfolder",
         help = "output folder for genome statistics")
+    parser_checkgenomes.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_checkgroups = subparsers.add_parser("checkgroups")
-    parser_checkgroups.set_defaults(func = run_checkgroups)
+    parser_checkgroups.set_defaults(func = run_checkgroups_withchecks)
     parser_checkgroups.add_argument("coregenome",
         help = "input file with a core genome")
     parser_checkgroups.add_argument("outfolder",
         help = "output folder for orthogroup statistics")
+    parser_checkgroups.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_filter = subparsers.add_parser('filter')
-    parser_filter.set_defaults(func = run_filter)
+    parser_filter.set_defaults(func = run_filter_withchecks)
     parser_filter.add_argument("pangenome",
         help = "input file with pangenome")
-    parser_filter.add_argument("output",
+    parser_filter.add_argument("outfolder",
         help = "output file for filtered pangenome")
     parser_filter.add_argument("-g", "--genomes",
         help = "input file with genomes to extract from pangenome")
     parser_filter.add_argument("-o", "--orthogroups",
         help = "input file with orthogroups to extract from pangenome")
+    parser_filter.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_supermatrix = subparsers.add_parser('supermatrix')
-    parser_supermatrix.set_defaults(func = run_supermatrix)
+    parser_supermatrix.set_defaults(func = run_supermatrix_withchecks)
     parser_supermatrix.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_supermatrix.add_argument("coregenome",
@@ -157,10 +167,10 @@ def parse_arguments():
 
     parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
         parents = [parser_pan_parent])
-    parser_pan_pipeline.set_defaults(func = run_pan_pipeline)
+    parser_pan_pipeline.set_defaults(func = run_pan_pipeline_withchecks)
 
     parser_core_pipeline = subparsers.add_parser('core-pipeline')
-    parser_core_pipeline.set_defaults(func = run_core_pipeline)
+    parser_core_pipeline.set_defaults(func = run_core_pipeline_withchecks)
     parser_core_pipeline.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_core_pipeline.add_argument("outfolder",

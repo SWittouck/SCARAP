@@ -1,20 +1,12 @@
-# This script contains a function for each task, called run_<task>. These
-# functions check input/output files/folders and dependencies. For most of them,
-# the main functionality is outsourced to functions of the type run_<task>_nb
-# (nb stands for "no bullshit").
-
 import logging
 import os
-import shutil
-import subprocess
-import sys
 
 from argparse import Namespace
-from checkers import *
-from random import sample
-from readerswriters import *
-from runners import *
+
 from utils import *
+from readerswriters import *
+from computers import *
+from callers import *
 
 def run_pan_nonhier(args):
 
@@ -72,7 +64,8 @@ def run_pan_hier(args):
         speciespanfios.append(speciespanfio)
         reprfio = os.path.join(dout, species + ".faa")
         reprpaths.append(reprfio)
-        collapse_pangenome(speciespanfio, faapathsfio, reprfio, species,
+        speciespan = read_genes(speciespanfio)
+        collapse_pangenome(speciespan, faapathsfio, reprfio, species,
             os.path.join(dout, "temp"))
     reprpathsfio = os.path.join(args.outfolder, "reprpaths.txt")
     write_lines(reprpaths, reprpathsfio)
@@ -98,28 +91,13 @@ def run_pan_hier(args):
     pangenome = pangenome[["gene", "genome", "orthogroup"]]
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
 
-def run_pan_nb(args):
+def run_pan(args):
     if "species" in args and not args.species is None:
         run_pan_hier(args)
     else:
         run_pan_nonhier(args)
 
-def run_pan(args):
-
-    logging.info("welcome to the pan task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
-    check_fastas(args.faapaths)
-    if not args.species is None:
-        check_infile(args.species)
-
-    logging.info("checking dependencies")
-    check_tool("orthofinder")
-
-    run_pan_nb(args)
-
-def run_build_nb(args):
+def run_build(args):
 
     if os.path.isfile(os.path.join(args.outfolder, "hmm_db.h3f")):
         logging.info("existing database detected - moving on")
@@ -155,21 +133,7 @@ def run_build_nb(args):
     logging.info("pressing profile hmm database")
     run_hmmpress(profilefouts, args.outfolder)
 
-def run_build(args):
-
-    logging.info("welcome to the build task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
-    check_infile(args.pangenome)
-
-    logging.info("checking dependencies")
-    check_tool("hmmbuild", ["-h"])
-    check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
-
-    run_build_nb(args)
-
-def run_search_nb(args):
+def run_search(args):
 
     genesfout = os.path.join(args.outfolder, "genes.tsv")
     if os.path.isfile(genesfout):
@@ -214,67 +178,21 @@ def run_search_nb(args):
     logging.info("removing temporary files")
     os.remove(domtblfio)
 
-def run_search(args):
-
-    logging.info("welcome to the search task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.qpaths)
-    check_fastas(args.qpaths)
-    check_db(args.db)
-    if args.trainstrategy is None:
-        check_infile(os.path.join(args.db, "orthogroups.tsv"))
-    else:
-        check_outfile(os.path.join(args.db, "orthogroups.tsv"))
-    if args.trainstrategy == "pan":
-        if args.pangenome is None:
-            logging.error("pangenome is required for cutoff training with the "
-            " pan strategy")
-            sys.exit(1)
-        check_infile(args.pangenome)
-    if not args.orthogroups is None:
-        check_infile(args.orthogroups)
-        logging.warning("the option to subset orthogroups is not yet "
-            "implemented")
-
-    logging.info("checking dependencies")
-    check_tool("hmmsearch", ["-h"])
-
-    run_search_nb(args)
-
-def run_checkgenomes_nb(args):
+def run_checkgenomes(args):
 
     logging.info("checking genomes")
     coregenome = read_genes(args.coregenome)
     genomes = checkgenomes(coregenome)
     write_tsv(genomes, os.path.join(args.outfolder, "genomes.tsv"))
 
-def run_checkgenomes(args):
-
-    logging.info("welcome to the checkgenomes task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.coregenome)
-
-    run_checkgenomes_nb(args)
-
-def run_checkgroups_nb(args):
+def run_checkgroups(args):
 
     logging.info("checking core orthogroups")
     coregenome = read_genes(args.coregenome)
     orthogroups = checkgroups(coregenome)
     write_tsv(orthogroups, os.path.join(args.outfolder, "orthogroups.tsv"))
 
-def run_checkgroups(args):
-
-    logging.info("welcome to the checkgroups task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.coregenome)
-
-    run_checkgroups_nb(args)
-
-def run_filter_nb(args):
+def run_filter(args):
 
     logging.info("reading pangenome")
     pangenome = read_genes(args.pangenome)
@@ -284,35 +202,11 @@ def run_filter_nb(args):
         pangenome = filter_genomes(pangenome, genomes)
     if not args.orthogroups is None:
         logging.info("filtering orthogroups")
-        orthogroups = read_lines(args.orthogroups, orthogroups)
+        orthogroups = read_lines(args.orthogroups)
         pangenome = filter_groups(pangenome, orthogroups)
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
 
-def run_filter(args):
-
-    logging.info("welcome to the filter task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.pangenome)
-    if not args.genomes is None:
-        check_infile(args.genomes)
-    if not args.orthogroups is None:
-        check_infile(args.orthogroups)
-
-    run_filter_nb(args)
-
 def run_supermatrix(args):
-
-    logging.info("welcome to the supermatrix task")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
-    check_infile(args.coregenome)
-    if not args.ffnpaths is None:
-        check_infile(args.ffnpaths)
-
-    logging.info("checking dependencies")
-    check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
 
     sm_aas_fout = os.path.join(args.outfolder, "supermatrix_aas.fasta")
     sm_nucs_fout = os.path.join(args.outfolder, "supermatrix_nucs.fasta")
@@ -373,86 +267,3 @@ def run_supermatrix(args):
 
         logging.info("concatenating nucleotide alignments")
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
-
-def run_pan_pipeline(args):
-
-    logging.info("welcome to the pan pipeline")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
-    check_fastas(args.faapaths)
-
-    logging.info("checking dependencies")
-    check_tool("orthofinder")
-    check_tool("hmmbuild", ["-h"])
-    check_tool("mafft", ["--help"])
-    check_tool("hmmsearch", ["-h"])
-
-    logging.info("STEP 1 - inferring pangenome")
-    run_pan_nb(args)
-
-    logging.info("STEP 2 - building profile hmm database of pangenome")
-    args.pangenome = os.path.join(args.outfolder, "pangenome.tsv")
-    args.min_genomes = 1 # default not yet set in all situations
-    if not args.species is None:
-        args.faapaths = os.path.join(args.outfolder, "reprpaths.txt")
-        args.pangenome = os.path.join(args.outfolder, "metapangenome",
-            "pangenome.tsv")
-    run_build_nb(args)
-
-    logging.info("STEP 3 - training score cutoffs for profiles")
-    args_search = Namespace(qpaths = args.faapaths, db = args.outfolder,
-        outfolder = args.outfolder, trainstrategy = "pan",
-        pangenome = args.pangenome)
-    run_search_nb(args_search)
-
-def run_core_pipeline(args):
-
-    logging.info("welcome to the core pipeline")
-
-    logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
-    check_fastas(args.faapaths)
-
-    logging.info("checking dependencies")
-    check_tool("orthofinder")
-    check_tool("hmmbuild", ["-h"])
-    check_tool("mafft", ["--help"])
-    check_tool("hmmsearch", ["-h"])
-
-    logging.info("selecting random seed genomes")
-    seedsdio = os.path.join(args.outfolder, "seeds")
-    os.makedirs(seedsdio, exist_ok = True)
-    faapaths = read_lines(args.faapaths)
-    seedpathsfio = os.path.join(seedsdio, "seedpaths.txt")
-    if not os.path.isfile(os.path.join(seedpathsfio)):
-        seedpaths = sample(faapaths, args.seeds)
-        write_tsv(pd.DataFrame({"path": seedpaths}), seedpathsfio)
-    else:
-        seedpaths = read_lines(seedpathsfio)
-
-    logging.info("STEP 1 - inferring pangenome of seed genomes")
-    args_pan = Namespace(faapaths = seedpathsfio, outfolder = seedsdio,
-        method = args.method, threads = args.threads)
-    run_pan_nb(args_pan)
-
-    logging.info("STEP 2 - building database of candidate core genes")
-    candsdio = os.path.join(args.outfolder, "cands")
-    os.makedirs(candsdio, exist_ok = True)
-    seedspanfio = os.path.join(seedsdio, "pangenome.tsv")
-    args_build = Namespace(faapaths = seedpathsfio, pangenome = seedspanfio,
-        outfolder = candsdio, min_genomes = args.seedfilter)
-    run_build_nb(args_build)
-
-    logging.info("STEP 3 - searching candidate core orthogroups in all genomes")
-    args_search = Namespace(qpaths = args.faapaths, db = candsdio,
-        outfolder = candsdio, trainstrategy = "core")
-    run_search_nb(args_search)
-
-    logging.info("STEP 4 - selecting core orthogroups from candidates")
-    candcoregenome = read_genes(os.path.join(candsdio, "genes.tsv"))
-    candcorefams = checkgroups(candcoregenome)
-    corefams = candcorefams[candcorefams.coreness >= args.allfilter].orthogroup
-    coregenome = filter_groups(candcoregenome, corefams)
-    write_tsv(corefams, os.path.join(args.outfolder, "core_orthogroups.txt"))
-    write_tsv(coregenome, os.path.join(args.outfolder, "coregenome.tsv"))

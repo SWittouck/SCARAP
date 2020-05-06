@@ -1,40 +1,9 @@
-import concurrent.futures
 import glob
-import logging
 import os
-import pandas as pd
 import re
-import shutil
+import pandas as pd
 
-from Bio import SeqIO, SeqRecord
-from pathlib import Path
 from utils import *
-
-def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
-    min_genomes = 1):
-
-    # filter orthogroups based on number of genomes they occur in
-    if min_genomes > 1:
-        pangenome = pangenome.groupby("orthogroup").\
-            filter(lambda x: len(set(x["genome"])) >= min_genomes)
-
-    # make dictionary to store faapaths of genomes
-    genome_to_faapath = {Path(faapath).stem: faapath for faapath in
-        faapaths}
-
-    # gather sequences and store in file per orthogroup
-    for genome, genes in pangenome.groupby("genome"):
-        faapath = genome_to_faapath[genome]
-        gene_to_orthogroup = dict(zip(genes.gene, genes.orthogroup))
-        with open(faapath, "r") as hin_genome:
-            for record in SeqIO.parse(hin_genome, "fasta"):
-                orthogroup = gene_to_orthogroup.get(record.id)
-                if orthogroup is None:
-                    continue
-                fout_orthogroup = os.path.join(dout_orthogroups,
-                    orthogroup + ".fasta")
-                with open(fout_orthogroup, "a+") as hout_orthogroup:
-                    SeqIO.write(record, hout_orthogroup, "fasta")
 
 def read_domtbl(fin_domtbl):
     domtbl = pd.read_csv(fin_domtbl, delim_whitespace = True, comment = '#',
@@ -58,18 +27,6 @@ def read_orthogroups(fin):
 def read_species(fin):
     genomes = pd.read_csv(fin, sep = "\t", names = ["genome", "species"])
     return(genomes)
-
-def write_tsv(genes, fout):
-    genes.to_csv(fout, sep = "\t", index = False, header = False)
-
-def write_lines(lines, fout):
-    lines = pd.DataFrame({"line": lines})
-    lines.to_csv(fout, index = False, header = False)
-
-def read_lines(fin):
-    with open(fin) as hin:
-        lines = [line.strip() for line in hin.readlines()]
-    return(lines)
 
 def read_orthogroups_orthofinder(fin_orthogroups):
     with open(fin_orthogroups, 'r') as hin_orthogroups:
@@ -117,86 +74,3 @@ def extract_genes(fins_genomes):
             pass
 
     return(genes)
-
-def collapse_pangenome(pangenomefin, faapathsfin, reprsfout, famprefix,
-    tempdio):
-    os.makedirs(tempdio)
-    pangenome = read_genes(pangenomefin)
-    faapaths = read_lines(faapathsfin)
-    gather_orthogroup_sequences(pangenome, faapaths, tempdio)
-    famfins = [os.path.join(tempdio, file) for file in os.listdir(tempdio)]
-    reprs = []
-    for famfin in famfins:
-        fam = filename_from_path(famfin)
-        with open(famfin, "r") as famhin:
-            records = list(SeqIO.parse(famhin, "fasta"))
-            repr = select_representative(records)
-            repr.id = famprefix + "-" + fam
-            reprs.append(repr)
-    with open(reprsfout, "w") as reprshout:
-        SeqIO.write(reprs, reprshout, "fasta")
-    shutil.rmtree(tempdio)
-
-"""
-Function to construct a supermatrix given alignments of individual single-copy
-core orthogroups. If there are two or more copies of an orthogroup in a genome,
-all copies will be dropped.
-Input:
-  - coregenome: DataFrame with columns gene, genome, orthogroup
-  - alifins: input files with alignments of single-copy core orthogroups
-  - supermatrixfout: fasta file containing the supermatrix alignment
-"""
-def construct_supermatrix(coregenome, alifins, supermatrixfout):
-
-    supermatrix = {}
-    genomes = list(set(coregenome.genome))
-    n_genomes = len(genomes)
-    for genome in genomes:
-        supermatrix[genome] = SeqRecord.SeqRecord(id = genome, seq = "",
-            description = "")
-
-    alifindict = {filename_from_path(alifin): alifin for alifin in alifins}
-
-    n_fams_sc = 0
-
-    for orthogroup, rows in coregenome.groupby("orthogroup"):
-        alifin = alifindict[orthogroup]
-        sequencedict = {}
-        for record in SeqIO.parse(alifin, "fasta"):
-            alilen = len(record.seq)
-            sequencedict[record.id] = record.seq
-        rows = rows.drop_duplicates("genome", keep = False)
-        rows = pd.merge(pd.DataFrame({"genome": genomes}), rows, how = "left")
-        for ix, row in rows.iterrows():
-            sequence_to_add = sequencedict.get(row.gene, "-" * alilen)
-            supermatrix[row.genome] = supermatrix[row.genome] + sequence_to_add
-
-    with open(supermatrixfout, "a") as supermatrixhout:
-        for genome in supermatrix:
-            SeqIO.write(supermatrix[genome], supermatrixhout, "fasta")
-
-"""
-Function to align a nucleotide fasta using an amino acid fasta as a reference
-alignment.
-Arguments:
-  - fin_og_nucs: nucleotide fasta to align (.fasta)
-  - fin_og_aas_aligned: amino acid fasta that is aligned (.aln)
-  - fout_og_nucs_aligned: file to store the aligned nucleotide fasta (.aln)
-"""
-def reverse_align_helper(fin_og_nucs, fin_og_aas_aligned, fout_og_nucs_aligned):
-    og_nucs = list(SeqIO.parse(fin_og_nucs, "fasta"))
-    og_aas_aligned = list(SeqIO.parse(fin_og_aas_aligned, "fasta"))
-    og_nucs_aligned = reverse_align(og_nucs, og_aas_aligned)
-    with open(fout_og_nucs_aligned, "w") as hout_og_nucs_aligned:
-        SeqIO.write(og_nucs_aligned, hout_og_nucs_aligned, "fasta")
-
-"""
-Function to align a set of nucleotide fastas using a set of amino acid fastas
-as reference alignments.
-"""
-def reverse_align_parallel(fins_ogs_nucs, fins_ogs_aas_aligned,
-    fouts_ogs_nucs_aligned):
-
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(reverse_align_helper, fins_ogs_nucs, fins_ogs_aas_aligned,
-            fouts_ogs_nucs_aligned)

@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import sys
 
-from Bio import SeqIO
 from Bio.Align.Applications import MafftCommandline
 from pathlib import Path
-from statistics import mean
+
+from utils import *
 
 def run_orthofinder(faafins, dout, logfout, threads, engine = "blast"):
     for faafin in faafins:
