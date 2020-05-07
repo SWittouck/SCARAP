@@ -8,26 +8,101 @@ from readerswriters import *
 from computers import *
 from callers import *
 
+def infer_superfamilies(faafins, dout, threads):
+    
+    threads = str(threads)
+  
+    # create output subfolders
+    logging.info("creating subfolders for superfamily inference steps")
+    for folder in ["logs", "sequenceDB", "preclusterDB", "profileDB", 
+        "alignmentDB", "clusterDB", "tmp"]:
+        os.makedirs(f"{dout}/{folder}", exist_ok = True)
+        
+    # create mmseqs sequence database
+    logging.info("creating mmseqs sequence database")
+    run_mmseqs(["createdb"] + faafins + [f"{dout}/sequenceDB/db"], 
+        f"{dout}/logs/createdb.log")
+    
+    # create preclusters with cluster (could also be linclust)
+    logging.info("creating preclusters")
+    run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
+        f"{dout}/tmp", "--min-seq-id", "0.1", "-c", "0.5", "--threads", 
+        threads], f"{dout}/logs/cluster.log", 
+        skip_if_exists = f"{dout}/preclusterDB/db.index")
+
+    # cluster the preclusters into the final clusters
+    logging.info("clustering the preclusters")
+    run_mmseqs(["result2profile", f"{dout}/sequenceDB/db", 
+        f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db", 
+        f"{dout}/profileDB/db", "--threads", threads], 
+        f"{dout}/logs/result2profile.log", 
+        skip_if_exists = f"{dout}/profileDB/db.index")
+    run_mmseqs(["search", f"{dout}/profileDB/db", 
+        f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db", 
+        f"{dout}/tmp", "--threads", threads, "-s", "7.5"], 
+        f"{dout}/logs/search.log", 
+        skip_if_exists = f"{dout}/alignmentDB/db.index")
+    run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
+        f"{dout}/clusterDB/db", "--threads", threads], 
+        f"{dout}/logs/clust.log", 
+        skip_if_exists = f"{dout}/clusterDB/db.index")
+
+    # create the tsv files with the preclusters and clusters
+    logging.info("compiling pangenome file with superfamilies")
+    run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
+        f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv"], 
+        f"{dout}/logs/createtsv_preclusters.log")
+    run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
+        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv"], 
+        f"{dout}/logs/createtsv_clusters.log")
+    preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
+        names = ["precluster", "gene"])
+    clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t", 
+        names = ["cluster", "precluster"])
+    genes_orthogroups = pd.merge(preclustertable, clustertable, on = "precluster")
+    genes_orthogroups = genes_orthogroups.rename(columns = {"cluster": "orthogroup"})
+    genes_genomes = extract_genes(faafins)
+    genes = pd.merge(genes_genomes, genes_orthogroups, on = "gene")
+    genes = genes.drop(["precluster"], axis = 1)
+    write_tsv(genes, f"{dout}/pangenome.tsv")
+
+def infer_pangenome(faafins, dout, threads):
+  
+    logging.info("STAGE 1: creation of superfamilies")
+    os.makedirs(f"{dout}/superfamilies", exist_ok = True)
+    infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
+    
+    logging.info("STAGE 2: splitting of superfamilies")
+    logging.info("(not yet implemented)")
+
 def run_pan_nonhier(args):
 
     pangenomefout = os.path.join(args.outfolder, "pangenome.tsv")
     if os.path.isfile(pangenomefout):
         logging.info("existing pangenome detected - moving on")
         return()
-
-    logging.info("creating orthofinder directory")
-    dir_orthofinder = os.path.join(args.outfolder, "orthofinder")
-    os.makedirs(dir_orthofinder, exist_ok = True)
-
-    logging.info("running orthofinder")
+    
     faafins = read_lines(args.faapaths)
-    logfile = os.path.join(args.outfolder, "orthofinder.log")
-    engine = args.method.split("_")[1]
-    run_orthofinder(faafins, dir_orthofinder, logfile, args.threads, engine)
+    
+    if args.method in ["of_blast", "of_diamond"]:
 
-    logging.info("creating tidy pangenome file")
-    pangenome = read_pangenome_orthofinder(dir_orthofinder)
-    write_tsv(pangenome, pangenomefout)
+        logging.info("creating orthofinder directory")
+        dir_orthofinder = os.path.join(args.outfolder, "orthofinder")
+        os.makedirs(dir_orthofinder, exist_ok = True)
+
+        logging.info("running orthofinder")
+        logfile = os.path.join(args.outfolder, "orthofinder.log")
+        engine = args.method.split("_")[1]
+        run_orthofinder(faafins, dir_orthofinder, logfile, args.threads, engine)
+    
+        logging.info("creating tidy pangenome file")
+        pangenome = read_pangenome_orthofinder(dir_orthofinder)
+        write_tsv(pangenome, pangenomefout)
+        
+    elif args.method == "builtin":
+        
+        logging.info("constructing pangenome")
+        infer_pangenome(faafins, args.outfolder, args.threads)
 
 def run_pan_hier(args):
 

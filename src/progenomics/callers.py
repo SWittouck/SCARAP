@@ -10,6 +10,20 @@ from pathlib import Path
 
 from utils import *
 
+def run_mmseqs(arguments, logfout, skip_if_exists = ""):
+    if skip_if_exists != "":
+        if os.path.exists(skip_if_exists):
+            if os.path.getsize(skip_if_exists) > 0:
+                logging.info("existing output detected - moving on")
+                return()
+    with open(logfout, "w") as loghout:
+        result = subprocess.call(["mmseqs"] + arguments, stdout = loghout, 
+            stderr = loghout)
+    if result != 0:
+        logging.error("something went wrong with mmseqs; see log file "
+            f"{logfout}")
+        sys.exit(1)
+
 def run_orthofinder(faafins, dout, logfout, threads, engine = "blast"):
     for faafin in faafins:
         faaname = os.path.basename(faafin)

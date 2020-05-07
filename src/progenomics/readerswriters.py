@@ -1,4 +1,5 @@
 import glob
+import gzip
 import os
 import re
 import pandas as pd
@@ -63,14 +64,15 @@ def extract_genes(fins_genomes):
 
     for fin_genome in fins_genomes:
         genome = filename_from_path(fin_genome)
-        with open(fin_genome, mode = "rt") as hin:
-            fasta = hin.read()
+        if fin_genome.endswith(".gz"):
+            with gzip.open(fin_genome, mode = "rt") as hin:
+                fasta = hin.read()
+        else:
+            with open(fin_genome, mode = "rt") as hin:
+                fasta = hin.read()
         genes_genome = re.compile(">([^ ]+)").findall(fasta)
         genes_genome = pd.DataFrame({"gene": genes_genome})
-        try:
-            genes_genome.loc[:, "genome"] = genome
-            genes = genes.append(genes_genome)
-        except ValueError:
-            pass
+        genes_genome.loc[:, "genome"] = genome
+        genes = genes.append(genes_genome)
 
     return(genes)

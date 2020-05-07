@@ -67,7 +67,7 @@ def parse_arguments():
     parser_pan_parent.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_pan_parent.add_argument("-d", "--method", default = "of_blast",
-        choices = ["of_blast", "of_diamond"],
+        choices = ["builtin", "of_blast", "of_diamond"],
         help = "pangenome inference method [default: of_blast]")
     parser_pan_parent.add_argument("outfolder",
         help = "output folder for pangenome file")
