@@ -1,7 +1,10 @@
 import logging
 import os
+import shutil
 
 from argparse import Namespace
+from ete3 import Tree
+from concurrent.futures import ProcessPoolExecutor
 
 from utils import *
 from readerswriters import *
@@ -59,12 +62,73 @@ def infer_superfamilies(faafins, dout, threads):
         names = ["precluster", "gene"])
     clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t", 
         names = ["cluster", "precluster"])
-    genes_orthogroups = pd.merge(preclustertable, clustertable, on = "precluster")
-    genes_orthogroups = genes_orthogroups.rename(columns = {"cluster": "orthogroup"})
+    genes_ogs = pd.merge(preclustertable, clustertable, on = "precluster")
+    genes_ogs = genes_ogs.rename(columns = {"cluster": "orthogroup"})
     genes_genomes = extract_genes(faafins)
-    genes = pd.merge(genes_genomes, genes_orthogroups, on = "gene")
+    genes = pd.merge(genes_genomes, genes_ogs, on = "gene")
     genes = genes.drop(["precluster"], axis = 1)
     write_tsv(genes, f"{dout}/pangenome.tsv")
+    
+def split_family(pangenome, sequences, family, threads, dio_tmp):
+    # if family is fully single-copy: just return pangenome
+    genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
+    if len(genomes) <= 3 or len(set(genomes)) == 1:
+        logging.info(f"{family} has not enough copies/genomes - moving on")
+        return(pangenome)
+    if len(genomes) == len(set(genomes)):
+        logging.info(f"{family} is single copy - moving on")
+        return(pangenome)
+    # write sequences of family to file
+    genes = pangenome[pangenome.orthogroup == family].index.tolist()
+    seqs = [sequences[gene] for gene in genes]
+    write_fasta(seqs, f"{dio_tmp}/seqs.fasta")
+    # align sequences of family
+    run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
+    # infer tree of family
+    run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
+        ["-m", "LG"])
+    # read tree of family 
+    tree = Tree(f"{dio_tmp}/tree/tree.treefile")
+    # midpoint root the tree and split in two
+    midoutgr = tree.get_midpoint_outgroup()
+    if midoutgr is None:
+        logging.info(f"{family} failed to midpoint root - moving on")
+        return(pangenome)
+    genes_subfam1 = midoutgr.get_leaf_names()
+    midoutgr.detach()
+    genes_subfam2 = tree.get_leaf_names()
+    # check if splitting is necessary
+    genomes_subfam1 = pangenome.loc[genes_subfam1, "genome"].tolist()
+    genomes_subfam2 = pangenome.loc[genes_subfam2, "genome"].tolist()
+    split = decide_split(genomes_subfam1, genomes_subfam2)
+    if split:
+        logging.info(f"{family} will be split")
+        # replace family ids with newly generated subfamily ids
+        subfam_1 = family + "_1"
+        subfam_2 = family + "_2"
+        pangenome.loc[genes_subfam1, "orthogroup"] = subfam_1
+        pangenome.loc[genes_subfam2, "orthogroup"] = subfam_2
+        # attempt to split the two subfamilies
+        pangenome = split_family(pangenome, sequences, subfam_1, threads, 
+            dio_tmp)
+        pangenome = split_family(pangenome, sequences, subfam_2, threads, 
+            dio_tmp)
+    else:
+        logging.info(f"{family} will be not be split")
+    return(pangenome)
+    
+def split_superfamily(pangenome, threads, dio_fastas, dio_tmp):
+    superfam = pangenome.orthogroup.tolist()[0]
+    pangenome = pangenome.set_index("gene")
+    dio_tmp = f"{dio_tmp}/{superfam}"
+    makedirs_smart(dio_tmp)
+    sequences = read_fasta(f"{dio_fastas}/{superfam}.fasta")
+    sequences = {record.id: record for record in sequences}
+    pangenome = split_family(pangenome, sequences, superfam, 
+        threads = threads, dio_tmp = dio_tmp)
+    pangenome = pangenome.reset_index()
+    shutil.rmtree(dio_tmp)
+    return(pangenome)
 
 def infer_pangenome(faafins, dout, threads):
   
@@ -73,7 +137,23 @@ def infer_pangenome(faafins, dout, threads):
     infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
     
     logging.info("STAGE 2: splitting of superfamilies")
-    logging.info("(not yet implemented)")
+    
+    logging.info("gathering sequences of superfamilies")
+    os.makedirs(f"{dout}/superfamilies/superfamilies", exist_ok = True)
+    pangenome = read_genes(f"{dout}/superfamilies/pangenome.tsv")
+    dio_fastas = f"{dout}/superfamilies/fastas"
+    gather_orthogroup_sequences(pangenome, faafins, dio_fastas)
+        
+    logging.info("splitting superfamilies")
+    os.makedirs(f"{dout}/tmp", exist_ok = True)
+    pangenome = pangenome.groupby("orthogroup")
+    pangenome = [pan for name, pan in pangenome]
+    n = len(pangenome)
+    with ProcessPoolExecutor(max_workers = threads) as executor:
+        pangenome = executor.map(split_superfamily, pangenome, [1] * n, 
+        [dio_fastas] * n, [f"{dout}/tmp"] * n)
+    pangenome = pd.concat(pangenome)
+    write_tsv(pangenome, f"{dout}/pangenome.tsv")
 
 def run_pan_nonhier(args):
 

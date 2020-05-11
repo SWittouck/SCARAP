@@ -1,19 +1,99 @@
 import concurrent.futures
 import os
 import pandas as pd
-import shutil
 
 from Bio import SeqIO, SeqRecord
-from pathlib import Path
+from random import shuffle
 from statistics import mean
 
 from utils import *
+    
+def calc_pgo(genomes_fam1, genomes_fam2):
+    """Calculates the proportion of genome overlap (pgo).
+    
+    Calculates the observed proportion of genomes present in both subfamilies
+    of a gene family.
+    
+    Args:
+        genomes_fam1: A list of genomes that the genes of family 1 belong 
+            to.
+        genomes_fam2: A list of genomes that the genes of family 2 belong 
+            to.
+            
+    Returns:
+        The observed pgo
+    """
+    n_unique_fam1 = len(set(genomes_fam1))
+    n_unique_fam2 = len(set(genomes_fam2))
+    n_unique_tot = len(set(genomes_fam1 + genomes_fam2))
+    pgo = (n_unique_fam1 + n_unique_fam2 - n_unique_tot) / n_unique_tot
+    return(pgo)
+    
+def ncat_exp(n, probs):
+    """Calculates the expected number of distinct categories.
+    
+    Calculates the expected number of distinct categories present in a 
+    multinomial sample. See Emigh, 1983, Biometrics. 
+    http://www.jstor.org/stable/2531019
+    
+    Args:
+        n (int): The sample size
+        probs: A list of probabilities that define the multinomial 
+            distribution.
+            
+    Returns:
+        The expected number of distinct categories.
+    """
+    ncat_exp = len(probs) - sum([(1 - prob) ** n for prob in probs])
+    return(ncat_exp)
+    
+def pred_pgo(genomes_fam1, genomes_fam2):
+    """Predicts the proportion of genome overlap (pgo).
+    
+    Predicts the percentage of unique genomes that are expected to be present 
+    in both subfamilies of a gene family, give a model where genomes are 
+    assigned randomly to the genes in each subfamily.
+    
+    Args:
+        genomes_fam1: A list of genomes that the genes of family 1 belong 
+            to.
+        genomes_fam2: A list of genomes that the genes of family 2 belong 
+            to.
+            
+    Returns:
+        The predicted pgo.
+    """
+    genomes = genomes_fam1 + genomes_fam2
+    freqs = pd.Series(genomes).value_counts().tolist()
+    tot = sum(freqs)
+    probs = [freq / tot for freq in freqs]
+    ncat_exp_tot = ncat_exp(len(genomes), probs)
+    ncat_exp_fam1 = ncat_exp(len(genomes_fam1), probs)
+    ncat_exp_fam2 = ncat_exp(len(genomes_fam2), probs)
+    pgo = (ncat_exp_fam1 + ncat_exp_fam2 - ncat_exp_tot) / len(set(genomes))
+    return(pgo)
 
-"""
-The table "hits" should have the columns "gene", "profile", "score" and
-"positive".
-"""
+def decide_split(genomes_fam1, genomes_fam2):
+    """Decides if a gene family should be split or not.
+    
+    Args:
+        genomes_fam1: A list of genomes that the genes of family 1 belong 
+            to.
+        genomes_fam2: A list of genomes that the genes of family 2 belong 
+            to.
+        
+    Returns:
+        A boolean value reflecting if the family should be split or not.
+    """
+    pgo_obs = calc_pgo(genomes_fam1, genomes_fam2)
+    pgo_exp = pred_pgo(genomes_fam1, genomes_fam2)
+    return(pgo_obs > pgo_exp)
+    
 def train_cutoffs(hits):
+    """
+    The table "hits" should have the columns "gene", "profile", "score" and
+    "positive".
+    """
     profile_to_cutoff = {}
     for profile, profile_hits in hits.groupby("profile"):
         scores_positive = profile_hits["score"][profile_hits["positive"]]
@@ -122,6 +202,9 @@ def reverse_align(og_nucs, og_aas_aligned):
 
 def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
     min_genomes = 1):
+    
+    # make output folder and empty if already exists
+    makedirs_smart(dout_orthogroups)
 
     # filter orthogroups based on number of genomes they occur in
     if min_genomes > 1:
@@ -129,14 +212,14 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
             filter(lambda x: len(set(x["genome"])) >= min_genomes)
 
     # make dictionary to store faapaths of genomes
-    genome_to_faapath = {Path(faapath).stem: faapath for faapath in
+    genome_to_faapath = {filename_from_path(faapath): faapath for faapath in
         faapaths}
 
     # gather sequences and store in file per orthogroup
     for genome, genes in pangenome.groupby("genome"):
         faapath = genome_to_faapath[genome]
         gene_to_orthogroup = dict(zip(genes.gene, genes.orthogroup))
-        with open(faapath, "r") as hin_genome:
+        with open_smart(faapath) as hin_genome:
             for record in SeqIO.parse(hin_genome, "fasta"):
                 orthogroup = gene_to_orthogroup.get(record.id)
                 if orthogroup is None:

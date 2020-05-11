@@ -10,6 +10,16 @@ from pathlib import Path
 
 from utils import *
 
+def run_iqtree(fin_aln, dout_tree, threads, options):
+    makedirs_smart(dout_tree)
+    result = subprocess.call(["iqtree", "-te", "BIONJ", "-s", fin_aln, "-pre", 
+        f"{dout_tree}/tree", "-nt", str(threads)] + options, 
+        stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+    if result != 0:
+        logging.error("something went wrong with iqtree; see log file "
+            f"{dout_tree}/tree.log")
+        sys.exit(1)
+
 def run_mmseqs(arguments, logfout, skip_if_exists = ""):
     if skip_if_exists != "":
         if os.path.exists(skip_if_exists):
@@ -37,9 +47,9 @@ def run_orthofinder(faafins, dout, logfout, threads, engine = "blast"):
             "'orthofinder.log'")
         sys.exit(1)
 
-def run_mafft(fin_aa_seqs, fout_aa_seqs_aligned):
+def run_mafft(fin_aa_seqs, fout_aa_seqs_aligned, threads = 1):
     logging.debug(f"aligning {Path(fin_aa_seqs).stem}")
-    mafft_cline = MafftCommandline(input = fin_aa_seqs)
+    mafft_cline = MafftCommandline(input = fin_aa_seqs, thread = threads)
     stdout, stderr = mafft_cline()
     with open(fout_aa_seqs_aligned, "w") as hout_aa_seqs_aligned:
         hout_aa_seqs_aligned.write(stdout)

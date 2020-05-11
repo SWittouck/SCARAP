@@ -1,5 +1,18 @@
+import gzip
 import os
 import pandas as pd
+import shutil
+
+def makedirs_smart(dout):
+    if os.path.exists(dout):
+        shutil.rmtree(dout)
+    os.makedirs(dout, exist_ok = True)
+
+def open_smart(filename, mode = "rt"):
+    if filename.endswith(".gz"):
+        return(gzip.open(filename, mode))
+    else:
+        return(open(filename, mode))
 
 def make_paths(filenames, folder, extension):
     paths = [os.path.join(folder, filename + extension) for filename in
@@ -7,6 +20,8 @@ def make_paths(filenames, folder, extension):
     return(paths)
 
 def filename_from_path(path):
+    if (path.endswith(".gz")):
+        path = path[:-3]
     filename = os.path.basename(path)
     filename = os.path.splitext(filename)[0]
     return(filename)
