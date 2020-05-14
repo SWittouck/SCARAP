@@ -29,25 +29,25 @@ def infer_superfamilies(faafins, dout, threads):
     # create preclusters with cluster (could also be linclust)
     logging.info("creating preclusters")
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
-        f"{dout}/tmp", "--min-seq-id", "0.1", "-c", "0.5", "--threads", 
-        threads], f"{dout}/logs/cluster.log", 
+        f"{dout}/tmp", "-s", "7.5", "--max-seqs", "1000000", "-c", "0.5", 
+        "-e", "inf", "--threads", threads], f"{dout}/logs/cluster.log", 
         skip_if_exists = f"{dout}/preclusterDB/db.index")
 
     # cluster the preclusters into the final clusters
     logging.info("clustering the preclusters")
-    run_mmseqs(["result2profile", f"{dout}/sequenceDB/db", 
-        f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db", 
-        f"{dout}/profileDB/db", "--threads", threads], 
-        f"{dout}/logs/result2profile.log", 
+    run_mmseqs(["result2profile", f"{dout}/sequenceDB/db",
+        f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
+        f"{dout}/profileDB/db", "--threads", threads],
+        f"{dout}/logs/result2profile.log",
         skip_if_exists = f"{dout}/profileDB/db.index")
-    run_mmseqs(["search", f"{dout}/profileDB/db", 
-        f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db", 
-        f"{dout}/tmp", "--threads", threads, "-s", "7.5"], 
-        f"{dout}/logs/search.log", 
+    run_mmseqs(["search", f"{dout}/profileDB/db",
+        f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
+        f"{dout}/tmp", "-s", "7.5", "--threads", threads],
+        f"{dout}/logs/search.log",
         skip_if_exists = f"{dout}/alignmentDB/db.index")
     run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
-        f"{dout}/clusterDB/db", "--threads", threads], 
-        f"{dout}/logs/clust.log", 
+        f"{dout}/clusterDB/db", "--threads", threads],
+        f"{dout}/logs/clust.log",
         skip_if_exists = f"{dout}/clusterDB/db.index")
 
     # create the tsv files with the preclusters and clusters
@@ -56,11 +56,11 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv"], 
         f"{dout}/logs/createtsv_preclusters.log")
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
-        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv"], 
+        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv"],
         f"{dout}/logs/createtsv_clusters.log")
     preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
         names = ["precluster", "gene"])
-    clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t", 
+    clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t",
         names = ["cluster", "precluster"])
     genes_ogs = pd.merge(preclustertable, clustertable, on = "precluster")
     genes_ogs = genes_ogs.rename(columns = {"cluster": "orthogroup"})
@@ -73,10 +73,10 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
     # if family is fully single-copy: just return pangenome
     genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
     if len(genomes) <= 3 or len(set(genomes)) == 1:
-        logging.info(f"{family} has not enough copies/genomes - moving on")
+        logging.info(f"{family}: not enough copies/genomes - moving on")
         return(pangenome)
     if len(genomes) == len(set(genomes)):
-        logging.info(f"{family} is single copy - moving on")
+        logging.info(f"{family}: single copy - moving on")
         return(pangenome)
     # write sequences of family to file
     genes = pangenome[pangenome.orthogroup == family].index.tolist()
@@ -92,7 +92,7 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
     # midpoint root the tree and split in two
     midoutgr = tree.get_midpoint_outgroup()
     if midoutgr is None:
-        logging.info(f"{family} failed to midpoint root - moving on")
+        logging.info(f"{family}: failed to midpoint root - moving on")
         return(pangenome)
     genes_subfam1 = midoutgr.get_leaf_names()
     midoutgr.detach()
@@ -100,9 +100,15 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
     # check if splitting is necessary
     genomes_subfam1 = pangenome.loc[genes_subfam1, "genome"].tolist()
     genomes_subfam2 = pangenome.loc[genes_subfam2, "genome"].tolist()
-    split = decide_split(genomes_subfam1, genomes_subfam2)
+    pgo_obs = calc_pgo(genomes_subfam1, genomes_subfam2)
+    pgo_exp = pred_pgo(genomes_subfam1, genomes_subfam2)
+    split = pgo_obs >= pgo_exp
+    n1 = len(set(genomes_subfam1))
+    n2 = len(set(genomes_subfam2))
     if split:
-        logging.info(f"{family} will be split")
+        logging.info(f"{family}: {n1}/{n2}; "
+            f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
+            f"decision = split")
         # replace family ids with newly generated subfamily ids
         subfam_1 = family + "_1"
         subfam_2 = family + "_2"
@@ -114,7 +120,9 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
         pangenome = split_family(pangenome, sequences, subfam_2, threads, 
             dio_tmp)
     else:
-        logging.info(f"{family} will be not be split")
+        logging.info(f"{family}: {n1}/{n2}; "
+            f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
+            f"decision = no split")
     return(pangenome)
     
 def split_superfamily(pangenome, threads, dio_fastas, dio_tmp):
@@ -132,25 +140,28 @@ def split_superfamily(pangenome, threads, dio_fastas, dio_tmp):
 
 def infer_pangenome(faafins, dout, threads):
   
+    # threads per process
+    tpp = 2
+  
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
     infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
-    
+      
     logging.info("STAGE 2: splitting of superfamilies")
-    
+
     logging.info("gathering sequences of superfamilies")
     os.makedirs(f"{dout}/superfamilies/superfamilies", exist_ok = True)
     pangenome = read_genes(f"{dout}/superfamilies/pangenome.tsv")
     dio_fastas = f"{dout}/superfamilies/fastas"
     gather_orthogroup_sequences(pangenome, faafins, dio_fastas)
-        
+
     logging.info("splitting superfamilies")
     os.makedirs(f"{dout}/tmp", exist_ok = True)
     pangenome = pangenome.groupby("orthogroup")
     pangenome = [pan for name, pan in pangenome]
     n = len(pangenome)
-    with ProcessPoolExecutor(max_workers = threads) as executor:
-        pangenome = executor.map(split_superfamily, pangenome, [1] * n, 
+    with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
+        pangenome = executor.map(split_superfamily, pangenome, [tpp] * n,
         [dio_fastas] * n, [f"{dout}/tmp"] * n)
     pangenome = pd.concat(pangenome)
     write_tsv(pangenome, f"{dout}/pangenome.tsv")

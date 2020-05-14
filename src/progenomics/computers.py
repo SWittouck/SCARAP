@@ -26,7 +26,8 @@ def calc_pgo(genomes_fam1, genomes_fam2):
     n_unique_fam1 = len(set(genomes_fam1))
     n_unique_fam2 = len(set(genomes_fam2))
     n_unique_tot = len(set(genomes_fam1 + genomes_fam2))
-    pgo = (n_unique_fam1 + n_unique_fam2 - n_unique_tot) / n_unique_tot
+    pgo = (n_unique_fam1 + n_unique_fam2 - n_unique_tot) / \
+        min([n_unique_fam1, n_unique_fam2])
     return(pgo)
     
 def ncat_exp(n, probs):
@@ -70,7 +71,8 @@ def pred_pgo(genomes_fam1, genomes_fam2):
     ncat_exp_tot = ncat_exp(len(genomes), probs)
     ncat_exp_fam1 = ncat_exp(len(genomes_fam1), probs)
     ncat_exp_fam2 = ncat_exp(len(genomes_fam2), probs)
-    pgo = (ncat_exp_fam1 + ncat_exp_fam2 - ncat_exp_tot) / len(set(genomes))
+    pgo = (ncat_exp_fam1 + ncat_exp_fam2 - ncat_exp_tot) / \
+        min([ncat_exp_fam1, ncat_exp_fam2])
     return(pgo)
 
 def decide_split(genomes_fam1, genomes_fam2):
@@ -87,7 +89,7 @@ def decide_split(genomes_fam1, genomes_fam2):
     """
     pgo_obs = calc_pgo(genomes_fam1, genomes_fam2)
     pgo_exp = pred_pgo(genomes_fam1, genomes_fam2)
-    return(pgo_obs > pgo_exp)
+    return(pgo_obs >= pgo_exp)
     
 def train_cutoffs(hits):
     """
