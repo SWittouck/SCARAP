@@ -20,15 +20,17 @@ def run_iqtree(fin_aln, dout_tree, threads, options):
             f"{dout_tree}/tree.log")
         sys.exit(1)
 
-def run_mmseqs(arguments, logfout, skip_if_exists = ""):
+def run_mmseqs(arguments, logfout, skip_if_exists = "", threads = 1):
     if skip_if_exists != "":
         if os.path.exists(skip_if_exists):
             if os.path.getsize(skip_if_exists) > 0:
                 logging.info("existing output detected - moving on")
                 return()
+    args = ["mmseqs"] + arguments
+    if not arguments[0] in ["createdb", "convertmsa"]:
+        args = args + ["--threads", str(threads)]
     with open(logfout, "w") as loghout:
-        result = subprocess.call(["mmseqs"] + arguments, stdout = loghout, 
-            stderr = loghout)
+        result = subprocess.call(args, stdout = loghout, stderr = loghout)
     if result != 0:
         logging.error("something went wrong with mmseqs; see log file "
             f"{logfout}")

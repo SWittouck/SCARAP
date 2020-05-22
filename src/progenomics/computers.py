@@ -7,7 +7,21 @@ from random import shuffle
 from statistics import mean
 
 from utils import *
+
+def split_possible(genomes):
+    """Determines whether splitting the family is an option. 
     
+    Args:
+        genomes (list): For each gene in the family, the genome that it belongs
+            to.
+    """
+    n_genes = len(genomes)
+    n_genomes = len(set(genomes))
+    if n_genes <= 3: return(False)
+    if n_genomes == 1: return(False)
+    if n_genes == n_genomes: return(False)
+    return(True)
+
 def calc_pgo(genomes_fam1, genomes_fam2):
     """Calculates the proportion of genome overlap (pgo).
     
@@ -15,14 +29,15 @@ def calc_pgo(genomes_fam1, genomes_fam2):
     of a gene family.
     
     Args:
-        genomes_fam1: A list of genomes that the genes of family 1 belong 
-            to.
-        genomes_fam2: A list of genomes that the genes of family 2 belong 
-            to.
+        genomes_fam1 (list): For each gene in family 1, the genome that it 
+            belongs to.
+        genomes_fam2 (list): For each gene in family 2, the genome that it 
+            belongs to.
             
     Returns:
         The observed pgo
     """
+    if 0 in [len(genomes_fam1), len(genomes_fam2)]: return 0
     n_unique_fam1 = len(set(genomes_fam1))
     n_unique_fam2 = len(set(genomes_fam2))
     n_unique_tot = len(set(genomes_fam1 + genomes_fam2))
@@ -64,6 +79,7 @@ def pred_pgo(genomes_fam1, genomes_fam2):
     Returns:
         The predicted pgo.
     """
+    if 0 in [len(genomes_fam1), len(genomes_fam2)]: return 0
     genomes = genomes_fam1 + genomes_fam2
     freqs = pd.Series(genomes).value_counts().tolist()
     tot = sum(freqs)
@@ -74,22 +90,6 @@ def pred_pgo(genomes_fam1, genomes_fam2):
     pgo = (ncat_exp_fam1 + ncat_exp_fam2 - ncat_exp_tot) / \
         min([ncat_exp_fam1, ncat_exp_fam2])
     return(pgo)
-
-def decide_split(genomes_fam1, genomes_fam2):
-    """Decides if a gene family should be split or not.
-    
-    Args:
-        genomes_fam1: A list of genomes that the genes of family 1 belong 
-            to.
-        genomes_fam2: A list of genomes that the genes of family 2 belong 
-            to.
-        
-    Returns:
-        A boolean value reflecting if the family should be split or not.
-    """
-    pgo_obs = calc_pgo(genomes_fam1, genomes_fam2)
-    pgo_exp = pred_pgo(genomes_fam1, genomes_fam2)
-    return(pgo_obs >= pgo_exp)
     
 def train_cutoffs(hits):
     """

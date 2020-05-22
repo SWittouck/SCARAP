@@ -3,6 +3,8 @@ import os
 import shutil
 
 from argparse import Namespace
+from Bio import SeqIO, AlignIO, Align, SeqRecord
+from copy import copy
 from ete3 import Tree
 from concurrent.futures import ProcessPoolExecutor
 
@@ -12,6 +14,13 @@ from computers import *
 from callers import *
 
 def infer_superfamilies(faafins, dout, threads):
+    """Infers superfamilies of a set of faa files. 
+    
+    Args:
+        faafins (list): Paths to .faa fasta files, one per genome. 
+        dout (chr): Output folder for the pangenome with the superfamilies.
+        threads (int): Number of threads to use.
+    """
     
     threads = str(threads)
   
@@ -30,25 +39,22 @@ def infer_superfamilies(faafins, dout, threads):
     logging.info("creating preclusters")
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
         f"{dout}/tmp", "-s", "7.5", "--max-seqs", "1000000", "-c", "0.5", 
-        "-e", "inf", "--threads", threads], f"{dout}/logs/cluster.log", 
-        skip_if_exists = f"{dout}/preclusterDB/db.index")
+        "-e", "inf"], f"{dout}/logs/cluster.log", 
+        skip_if_exists = f"{dout}/preclusterDB/db.index", threads = threads)
 
     # cluster the preclusters into the final clusters
     logging.info("clustering the preclusters")
     run_mmseqs(["result2profile", f"{dout}/sequenceDB/db",
         f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
-        f"{dout}/profileDB/db", "--threads", threads],
-        f"{dout}/logs/result2profile.log",
-        skip_if_exists = f"{dout}/profileDB/db.index")
+        f"{dout}/profileDB/db"], f"{dout}/logs/result2profile.log",
+        skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
     run_mmseqs(["search", f"{dout}/profileDB/db",
         f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
-        f"{dout}/tmp", "-s", "7.5", "--threads", threads],
-        f"{dout}/logs/search.log",
-        skip_if_exists = f"{dout}/alignmentDB/db.index")
+        f"{dout}/tmp", "-s", "7.5"], f"{dout}/logs/search.log",
+        skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
     run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
-        f"{dout}/clusterDB/db", "--threads", threads],
-        f"{dout}/logs/clust.log",
-        skip_if_exists = f"{dout}/clusterDB/db.index")
+        f"{dout}/clusterDB/db"], f"{dout}/logs/clust.log",
+        skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
 
     # create the tsv files with the preclusters and clusters
     logging.info("compiling pangenome file with superfamilies")
@@ -69,21 +75,21 @@ def infer_superfamilies(faafins, dout, threads):
     genes = genes.drop(["precluster"], axis = 1)
     write_tsv(genes, f"{dout}/pangenome.tsv")
     
-def split_family(pangenome, sequences, family, threads, dio_tmp):
-    # if family is fully single-copy: just return pangenome
-    genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
-    if len(genomes) <= 3 or len(set(genomes)) == 1:
-        logging.info(f"{family}: not enough copies/genomes - moving on")
-        return(pangenome)
-    if len(genomes) == len(set(genomes)):
-        logging.info(f"{family}: single copy - moving on")
-        return(pangenome)
-    # write sequences of family to file
-    genes = pangenome[pangenome.orthogroup == family].index.tolist()
-    seqs = [sequences[gene] for gene in genes]
-    write_fasta(seqs, f"{dio_tmp}/seqs.fasta")
-    # align sequences of family
-    run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
+def generate_subfams_treestrat(fin_seqs, dio_tmp, threads):
+    """Generates two subfamilies for a gene family.
+    
+    Generates subfamilies using a tree-based strategy. 
+    
+    Args:
+        fin_seqs (chr): Path to fasta file with sequences of genes.
+        dio_tmp (chr): Path to folder to store temporary files in.
+        threads (int): Number of threads to use.
+        
+    Returns:
+        A list of two elements: the gene ids for subfamily one and the gene ids
+            for subfamily two. 
+    """
+    run_mafft(fin_seqs, f"{dio_tmp}/seqs.aln", threads)
     # infer tree of family
     run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
         ["-m", "LG"])
@@ -91,20 +97,132 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
     tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     # midpoint root the tree and split in two
     midoutgr = tree.get_midpoint_outgroup()
-    if midoutgr is None:
-        logging.info(f"{family}: failed to midpoint root - moving on")
-        return(pangenome)
+    # if midoutgr is None:
+    #     logging.info(f"{family}: failed to midpoint root - moving on")
+    #     return(pangenome)
     genes_subfam1 = midoutgr.get_leaf_names()
     midoutgr.detach()
     genes_subfam2 = tree.get_leaf_names()
-    # check if splitting is necessary
+    return([genes_subfam1, genes_subfam2])
+        
+def generate_subfams_profilestrat(fin_seqs, dio_tmp, threads):
+    """Generates two subfamilies for a gene family.
+    
+    Generates subfamilies using a profile-based strategy. 
+    
+    Args:
+        fin_seqs (chr): Path to fasta file with sequences of genes.
+        dio_tmp (chr): Path to folder to store temporary files in.
+        threads (int): Number of threads to use.
+        
+    Returns:
+        A list of two elements: the gene ids for subfamily one and the gene ids
+            for subfamily two. 
+    """
+  
+    report = False
+        
+    # align sequences
+    run_mafft(fin_seqs, f"{dio_tmp}/seqs.aln", threads)
+
+    # create sequence database
+    for dir in ["sequenceDB", "tmp", "resultDB", "logs"]:
+        makedirs_smart(f"{dio_tmp}/{dir}")
+    run_mmseqs(["createdb", fin_seqs, f"{dio_tmp}/sequenceDB/db"], 
+        f"{dio_tmp}/logs/createdb.log")
+    
+    # initialize subfamilies
+    with open(f"{dio_tmp}/seqs.aln", "r") as fin:
+        aln = AlignIO.read(fin, "fasta")
+    genes = pd.DataFrame({"gene": [seq.id for seq in aln],
+        "profile": ["profile2"] * len(aln)})
+    repr = select_representative(aln)
+    if report: print(repr.id)
+    genes.loc[genes.gene == repr.id, "profile"] = "profile1"
+    genes_profile1 = genes.loc[genes["profile"] == "profile1", "gene"].tolist()
+    
+    # update profiles
+    for i in range(5):
+        if report: print(f"iteration {i}")
+        for dir in ["msaDB", "profileDB", "searchDB", "tmp"]:
+            makedirs_smart(f"{dio_tmp}/{dir}")
+        open(f"{dio_tmp}/profiles.sto", "w").close()
+        for profile, profilegenes in genes.groupby("profile"):
+            records = [copy(rec) for rec in aln if rec.id in \
+                profilegenes.gene.tolist()]
+            # mmseqs takes id of first sequence in alignment as profile name
+            records[0].id = profile
+            aln_sub = Align.MultipleSeqAlignment(records)
+            with open(f"{dio_tmp}/profiles.sto", "a") as hout:
+                AlignIO.write(aln_sub, hout, "stockholm")
+        run_mmseqs(["convertmsa", f"{dio_tmp}/profiles.sto", 
+            f"{dio_tmp}/msaDB/db"], f"{dio_tmp}/logs/convertmsa.log")
+        run_mmseqs(["msa2profile", f"{dio_tmp}/msaDB/db",
+            f"{dio_tmp}/profileDB/db", "--match-mode", "1", 
+            "--filter-msa", "1", "--diff", "1000", "--qsc", "-50", 
+            "--match-ratio", "0.5"], f"{dio_tmp}/logs/msa2profile.log")
+        run_mmseqs(["search", f"{dio_tmp}/profileDB/db", 
+            f"{dio_tmp}/sequenceDB/db", f"{dio_tmp}/searchDB/db", 
+            f"{dio_tmp}/tmp", "--max-seqs", "1000000", "-s", "7.5"], 
+            f"{dio_tmp}/logs/search.log")
+        run_mmseqs(["convertalis", f"{dio_tmp}/profileDB/db", 
+            f"{dio_tmp}/sequenceDB/db", f"{dio_tmp}/searchDB/db", 
+            f"{dio_tmp}/results.tsv"], f"{dio_tmp}/logs/convertalis.log")
+        hits = read_mmseqs_table(f"{dio_tmp}/results.tsv")
+        hits = hits.sort_values("pident", ascending = False)
+        hits = hits.reset_index(drop = True)
+        hits = hits.drop_duplicates(["target"])
+        genes = hits.iloc[:, [0, 1]].copy()
+        genes = genes.rename(columns = {"query": "profile", "target": "gene"})
+        genes_profile1_new = \
+            genes.loc[genes["profile"] == "profile1", "gene"].tolist()
+        n_diff = len(set(genes_profile1) ^ set(genes_profile1_new))
+        if report: print(f"difference in profile1: {n_diff}")
+        genes_profile1 = genes_profile1_new
+        if report: print(f"number of genes in profile1: {len(genes_profile1)}")
+        if n_diff == 0: break
+        if len(genes_profile1) in [len(genes.index), 0]: break
+
+    genes_profile2 = [seq.id for seq in aln if not seq.id in genes_profile1]
+    # print(f"{len(genes_profile1)}, {len(genes_profile2)}")
+    return([genes_profile1, genes_profile2])
+    
+def split_family_recursive(pangenome, sequences, family, strategy, threads, 
+    dio_tmp):
+    """Implements the main functionality of split_family through recursion.
+    """
+    
+    # if family is fully single-copy: just return pangenome
+    genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
+    if not split_possible(genomes):
+        logging.info(f"{family}: {len(genomes)} genes - split not an option")
+        return(pangenome)
+    
+    # write sequences of family to file
+    genes = pangenome[pangenome.orthogroup == family].index.tolist()
+    seqs = [sequences[gene] for gene in genes]
+    write_fasta(seqs, f"{dio_tmp}/seqs.fasta")
+
+    # suggest subfamilies
+    if strategy == "trees":
+        genes_subfam1, genes_subfam2 = generate_subfams_treestrat(
+            f"{dio_tmp}/seqs.fasta", f"{dio_tmp}", threads)
+    elif strategy == "profiles":
+        genes_subfam1, genes_subfam2 = generate_subfams_profilestrat(
+            f"{dio_tmp}/seqs.fasta", f"{dio_tmp}", threads)
+    else:
+        loggig.error("unknown splitting strategy")
+        
+    # apply splitting criterium
     genomes_subfam1 = pangenome.loc[genes_subfam1, "genome"].tolist()
     genomes_subfam2 = pangenome.loc[genes_subfam2, "genome"].tolist()
     pgo_obs = calc_pgo(genomes_subfam1, genomes_subfam2)
     pgo_exp = pred_pgo(genomes_subfam1, genomes_subfam2)
-    split = pgo_obs >= pgo_exp
+    split = pgo_obs >= pgo_exp and not pgo_exp == 0
     n1 = len(set(genomes_subfam1))
     n2 = len(set(genomes_subfam2))
+    
+    # split if necessary
     if split:
         logging.info(f"{family}: {n1}/{n2}; "
             f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
@@ -115,33 +233,56 @@ def split_family(pangenome, sequences, family, threads, dio_tmp):
         pangenome.loc[genes_subfam1, "orthogroup"] = subfam_1
         pangenome.loc[genes_subfam2, "orthogroup"] = subfam_2
         # attempt to split the two subfamilies
-        pangenome = split_family(pangenome, sequences, subfam_1, threads, 
-            dio_tmp)
-        pangenome = split_family(pangenome, sequences, subfam_2, threads, 
-            dio_tmp)
+        pangenome = split_family_recursive(pangenome, sequences, subfam_1, 
+            strategy, threads, dio_tmp)
+        pangenome = split_family_recursive(pangenome, sequences, subfam_2, 
+            strategy, threads, dio_tmp)
     else:
         logging.info(f"{family}: {n1}/{n2}; "
             f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
             f"decision = no split")
+            
     return(pangenome)
     
-def split_superfamily(pangenome, threads, dio_fastas, dio_tmp):
+def split_family(pangenome, threads, din_fastas, strategy, dio_tmp):
+    """Splits a gene family in one, two or more subfamilies.
+    
+    Args:
+        pangenome (Data Frame): Table with columns gene, genome and orthogroup 
+            for the genes or a single gene family. 
+        threads (int): Number of threads to use. 
+        din_fastas (chr): Input folder with fasta file of gene family. 
+        strategy (chr): Splitting strategy. ["trees", "profiles"]
+        dio_tmp (chr): Folder to store temporary files.
+        
+    Returns:
+        A pandas Data Frame with the pangenome, where the orthogroups have been
+            split. 
+    """
     superfam = pangenome.orthogroup.tolist()[0]
     pangenome = pangenome.set_index("gene")
     dio_tmp = f"{dio_tmp}/{superfam}"
     makedirs_smart(dio_tmp)
-    sequences = read_fasta(f"{dio_fastas}/{superfam}.fasta")
+    sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
     sequences = {record.id: record for record in sequences}
-    pangenome = split_family(pangenome, sequences, superfam, 
-        threads = threads, dio_tmp = dio_tmp)
+    pangenome = split_family_recursive(pangenome, sequences, superfam, 
+        strategy, threads = threads, dio_tmp = dio_tmp)
     pangenome = pangenome.reset_index()
     shutil.rmtree(dio_tmp)
     return(pangenome)
 
-def infer_pangenome(faafins, dout, threads):
+def infer_pangenome(faafins, dout, splitstrategy, threads):
+    """Infers the pangenome of a set of genomes and writes it to disk. 
+    
+    Args:
+        faafins (list): Paths to .faa fasta files, one per genome. 
+        dout (chr): Output folder for the pangenome.
+        splitstrategy (chr): Splitting strategy. ["trees", "profiles"]
+        threads (int): Number of threads to use.
+    """
   
     # threads per process
-    tpp = 2
+    tpp = 1
   
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
@@ -158,12 +299,17 @@ def infer_pangenome(faafins, dout, threads):
     logging.info("splitting superfamilies")
     os.makedirs(f"{dout}/tmp", exist_ok = True)
     pangenome = pangenome.groupby("orthogroup")
-    pangenome = [pan for name, pan in pangenome]
-    n = len(pangenome)
+    orthogroups = pangenome.aggregate({"genome": split_possible})
+    splitable = orthogroups[orthogroups.genome].index.tolist()
+    pangenome_splitable = [pan for name, pan in pangenome if name in splitable]
+    n = len(pangenome_splitable)
+    logging.info(f"splitting {n} splitable superfamilies")
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
-        pangenome = executor.map(split_superfamily, pangenome, [tpp] * n,
-        [dio_fastas] * n, [f"{dout}/tmp"] * n)
-    pangenome = pd.concat(pangenome)
+        pangenome_splitable = executor.map(split_family, pangenome_splitable, 
+            [tpp] * n, [dio_fastas] * n, [splitstrategy] * n, 
+            [f"{dout}/tmp"] * n)
+    pangenome = pd.concat(list(pangenome_splitable) + 
+        [pan for name, pan in pangenome if not name in splitable])
     write_tsv(pangenome, f"{dout}/pangenome.tsv")
 
 def run_pan_nonhier(args):
@@ -184,16 +330,22 @@ def run_pan_nonhier(args):
         logging.info("running orthofinder")
         logfile = os.path.join(args.outfolder, "orthofinder.log")
         engine = args.method.split("_")[1]
-        run_orthofinder(faafins, dir_orthofinder, logfile, args.threads, engine)
+        run_orthofinder(faafins, dir_orthofinder, logfile, args.threads, 
+            engine)
     
         logging.info("creating tidy pangenome file")
         pangenome = read_pangenome_orthofinder(dir_orthofinder)
         write_tsv(pangenome, pangenomefout)
         
-    elif args.method == "builtin":
+    elif args.method == "builtin_profiles":
         
-        logging.info("constructing pangenome")
-        infer_pangenome(faafins, args.outfolder, args.threads)
+        logging.info("constructing pangenome with profile strategy")
+        infer_pangenome(faafins, args.outfolder, "profiles", args.threads)
+        
+    elif args.method == "builtin_trees":
+        
+        logging.info("constructing pangenome with tree strategy")
+        infer_pangenome(faafins, args.outfolder, "trees", args.threads)
 
 def run_pan_hier(args):
 

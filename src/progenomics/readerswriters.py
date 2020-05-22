@@ -8,6 +8,12 @@ from Bio import SeqIO
 
 from utils import *
 
+def read_mmseqs_table(fin):
+    names = ["query", "target", "pident", "alnlen", "mismatch", "gapopen", 
+        "qstart", "qend", "tstart", "tend", "evalue", "bits"]
+    table = pd.read_csv(fin, sep = "\t", names = names)
+    return(table)
+
 def read_fasta(fin):
     with open_smart(fin) as hin:
         seqs = list(SeqIO.parse(hin, "fasta"))
