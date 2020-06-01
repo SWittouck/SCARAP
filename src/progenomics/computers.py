@@ -1,4 +1,5 @@
 import concurrent.futures
+import numpy as np
 import os
 import pandas as pd
 
@@ -7,6 +8,50 @@ from random import shuffle
 from statistics import mean
 
 from utils import *
+
+def identity_matrix(seqrecords):
+    '''
+    Calculates a pairwise sequence identity matrix for a list of DNA sequences
+    or SeqRecords.
+    Probably approximately as fast as the distmat tool from EMBOSS, but this 
+    function can easily be parallelized on (batches of) columns.
+    '''
+
+    n_seqs = len(seqrecords)
+    n_cols = len(seqrecords[0].seq)
+
+    # matrix with pairwise counts of alignment positions that are
+    # identical
+    identity_counts = np.zeros((n_seqs, n_seqs), np.uint32)
+    # matrix with pairwise counts of alignment positions that are
+    # incomparable
+    comparable_counts = np.zeros((n_seqs, n_seqs), np.uint32)
+
+    for col in range(n_cols):
+        # print("col ", col, " of ", n_cols)
+        # dictionary to store for each possible character the indices
+        # of sequences with that character
+        chars = {}
+        for sr_ix, sr in enumerate(seqrecords):
+            char = sr.seq[col]
+            if char != "-":
+                chars.setdefault(char, []).append(sr_ix)
+        # for letters in the alphabet, add identity counts
+        ixs_comp = np.array([], np.uint32)
+        for char in chars.keys():
+            ixs = np.array(chars[char], np.uint32)
+            identity_counts[ixs[:, None], ixs] += 1
+            ixs_comp = np.hstack((ixs_comp, ixs))
+        # for all sequence combinations that both have a letter in the alphabet
+        # add that they are comparable
+        comparable_counts[ixs_comp[:, None], ixs_comp] += 1
+        
+    # avoid division by zero
+    comparable_counts[comparable_counts == 0] += 1
+
+    identity_matrix = identity_counts / comparable_counts
+
+    return(identity_matrix)
 
 def split_possible(genomes):
     """Determines whether splitting the family is an option. 

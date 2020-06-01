@@ -7,6 +7,7 @@ from Bio import SeqIO, AlignIO, Align, SeqRecord
 from copy import copy
 from ete3 import Tree
 from concurrent.futures import ProcessPoolExecutor
+from scipy import cluster
 
 from utils import *
 from readerswriters import *
@@ -90,10 +91,9 @@ def generate_subfams_treestrat(fin_seqs, dio_tmp, threads):
             for subfamily two. 
     """
     run_mafft(fin_seqs, f"{dio_tmp}/seqs.aln", threads)
-    # infer tree of family
+    # infer tree with iqtree
     run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
         ["-m", "LG"])
-    # read tree of family 
     tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     # midpoint root the tree and split in two
     midoutgr = tree.get_midpoint_outgroup()
@@ -103,6 +103,34 @@ def generate_subfams_treestrat(fin_seqs, dio_tmp, threads):
     genes_subfam1 = midoutgr.get_leaf_names()
     midoutgr.detach()
     genes_subfam2 = tree.get_leaf_names()
+    return([genes_subfam1, genes_subfam2])
+    
+def generate_subfams_cluststrat(fin_seqs, dio_tmp, threads):
+    """Generates two subfamilies for a gene family.
+    
+    Generates subfamilies using a hclust-based strategy. 
+    
+    Args:
+        fin_seqs (chr): Path to fasta file with sequences of genes.
+        
+    Returns:
+        A list of two elements: the gene ids for subfamily one and the gene ids
+            for subfamily two. 
+    """
+    run_mafft(fin_seqs, f"{dio_tmp}/seqs.aln", threads = threads)
+    with open(f"{dio_tmp}/seqs.aln", "r") as fin:
+        aln = AlignIO.read(fin, "fasta")
+    n = len(aln)
+    im = identity_matrix(aln)
+    dm = []
+    for r in range(n - 1):
+        for c in range(r + 1, n):
+            dm.append(1 - im[r, c])
+    link = cluster.hierarchy.linkage(dm, method = "average")
+    clusters = cluster.hierarchy.cut_tree(link, n_clusters = 2)
+    genes_subfam1 = [seq.id for seq, cl in zip(aln, clusters) if cl[0] == 0]
+    genes_subfam2 = [seq.id for seq, cl in zip(aln, clusters) if cl[0] == 1]
+    # tree = to_tree(link)
     return([genes_subfam1, genes_subfam2])
         
 def generate_subfams_profilestrat(fin_seqs, dio_tmp, threads):
@@ -192,7 +220,7 @@ def split_family_recursive(pangenome, sequences, family, strategy, threads,
     """Implements the main functionality of split_family through recursion.
     """
     
-    # if family is fully single-copy: just return pangenome
+    # return pangenome if split is not possible
     genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
     if not split_possible(genomes):
         logging.info(f"{family}: {len(genomes)} genes - split not an option")
@@ -209,6 +237,9 @@ def split_family_recursive(pangenome, sequences, family, strategy, threads,
             f"{dio_tmp}/seqs.fasta", f"{dio_tmp}", threads)
     elif strategy == "profiles":
         genes_subfam1, genes_subfam2 = generate_subfams_profilestrat(
+            f"{dio_tmp}/seqs.fasta", f"{dio_tmp}", threads)
+    elif strategy == "clusters":
+        genes_subfam1, genes_subfam2 = generate_subfams_cluststrat(
             f"{dio_tmp}/seqs.fasta", f"{dio_tmp}", threads)
     else:
         loggig.error("unknown splitting strategy")
@@ -244,6 +275,51 @@ def split_family_recursive(pangenome, sequences, family, strategy, threads,
             
     return(pangenome)
     
+def split_family_recursive_clust(pangenome, family, hclust, genes):
+    
+    # return pangenome if split is not possible
+    genomes = pangenome[pangenome.orthogroup == family].genome.tolist()
+    if not split_possible(genomes):
+        logging.info(f"{family}: {len(genomes)} genes - split not an option")
+        return(pangenome)
+  
+    hclust1 = hclust.get_left()
+    hclust2 = hclust.get_right()
+    
+    genes_subfam1 = [genes[i] for i in hclust1.pre_order(lambda x: x.id)]
+    genes_subfam2 = [genes[i] for i in hclust2.pre_order(lambda x: x.id)]
+        
+    # apply splitting criterium
+    genomes_subfam1 = pangenome.loc[genes_subfam1, "genome"].tolist()
+    genomes_subfam2 = pangenome.loc[genes_subfam2, "genome"].tolist()
+    pgo_obs = calc_pgo(genomes_subfam1, genomes_subfam2)
+    pgo_exp = pred_pgo(genomes_subfam1, genomes_subfam2)
+    split = pgo_obs >= pgo_exp and not pgo_exp == 0
+    n1 = len(set(genomes_subfam1))
+    n2 = len(set(genomes_subfam2))
+    
+    # split if necessary
+    if split:
+        logging.info(f"{family}: {n1}/{n2}; "
+            f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
+            f"decision = split")
+        # replace family ids with newly generated subfamily ids
+        subfam1 = family + "_1"
+        subfam2 = family + "_2"
+        pangenome.loc[genes_subfam1, "orthogroup"] = subfam1
+        pangenome.loc[genes_subfam2, "orthogroup"] = subfam2
+        # attempt to split the two subfamilies
+        pangenome = split_family_recursive_clust(pangenome, subfam1, hclust1,
+            genes)
+        pangenome = split_family_recursive_clust(pangenome, subfam2, hclust2,
+            genes)
+    else:
+        logging.info(f"{family}: {n1}/{n2}; "
+            f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
+            f"decision = no split")
+    
+    return(pangenome)
+    
 def split_family(pangenome, threads, din_fastas, strategy, dio_tmp):
     """Splits a gene family in one, two or more subfamilies.
     
@@ -252,21 +328,43 @@ def split_family(pangenome, threads, din_fastas, strategy, dio_tmp):
             for the genes or a single gene family. 
         threads (int): Number of threads to use. 
         din_fastas (chr): Input folder with fasta file of gene family. 
-        strategy (chr): Splitting strategy. ["trees", "profiles"]
+        strategy (chr): Splitting strategy. ["trees", "profiles", "clusters", 
+            "clusters_fast"]
         dio_tmp (chr): Folder to store temporary files.
         
     Returns:
         A pandas Data Frame with the pangenome, where the orthogroups have been
             split. 
     """
+    
     superfam = pangenome.orthogroup.tolist()[0]
     pangenome = pangenome.set_index("gene")
     dio_tmp = f"{dio_tmp}/{superfam}"
     makedirs_smart(dio_tmp)
-    sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
-    sequences = {record.id: record for record in sequences}
-    pangenome = split_family_recursive(pangenome, sequences, superfam, 
-        strategy, threads = threads, dio_tmp = dio_tmp)
+    
+    if strategy == "clusters_fast": 
+        run_mafft(f"{din_fastas}/{superfam}.fasta", f"{dio_tmp}/seqs.aln", 
+            threads)
+        with open(f"{dio_tmp}/seqs.aln", "r") as fin:
+            aln = AlignIO.read(fin, "fasta")
+        genes = [seq.id for seq in aln]
+        n = len(aln)
+        im = identity_matrix(aln)
+        dm = []
+        for r in range(n - 1):
+            for c in range(r + 1, n):
+                dm.append(1 - im[r, c])
+        hclust = cluster.hierarchy.linkage(dm, method = "average")
+        hclust = cluster.hierarchy.to_tree(hclust)
+        pangenome = split_family_recursive_clust(pangenome, superfam, hclust, 
+            genes)
+        
+    else:
+        sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
+        sequences = {record.id: record for record in sequences}
+        pangenome = split_family_recursive(pangenome, sequences, superfam, 
+            strategy, threads = threads, dio_tmp = dio_tmp)
+            
     pangenome = pangenome.reset_index()
     shutil.rmtree(dio_tmp)
     return(pangenome)
@@ -282,7 +380,7 @@ def infer_pangenome(faafins, dout, splitstrategy, threads):
     """
   
     # threads per process
-    tpp = 1
+    tpp = 2
   
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
@@ -302,13 +400,14 @@ def infer_pangenome(faafins, dout, splitstrategy, threads):
     orthogroups = pangenome.aggregate({"genome": split_possible})
     splitable = orthogroups[orthogroups.genome].index.tolist()
     pangenome_splitable = [pan for name, pan in pangenome if name in splitable]
+    pangenome_splitable.sort(key = lambda pan: len(pan.index), reverse = True)
     n = len(pangenome_splitable)
     logging.info(f"splitting {n} splitable superfamilies")
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
-        pangenome_splitable = executor.map(split_family, pangenome_splitable, 
-            [tpp] * n, [dio_fastas] * n, [splitstrategy] * n, 
+        pangenome_splitable = executor.map(split_family, pangenome_splitable,
+            [tpp] * n, [dio_fastas] * n, [splitstrategy] * n,
             [f"{dout}/tmp"] * n)
-    pangenome = pd.concat(list(pangenome_splitable) + 
+    pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
     write_tsv(pangenome, f"{dout}/pangenome.tsv")
 
@@ -346,6 +445,16 @@ def run_pan_nonhier(args):
         
         logging.info("constructing pangenome with tree strategy")
         infer_pangenome(faafins, args.outfolder, "trees", args.threads)
+        
+    elif args.method == "builtin_clusters":
+        
+        logging.info("constructing pangenome with cluster strategy")
+        infer_pangenome(faafins, args.outfolder, "clusters", args.threads)
+        
+    elif args.method == "builtin_clusters_fast":
+        
+        logging.info("constructing pangenome with cluster strategy")
+        infer_pangenome(faafins, args.outfolder, "clusters_fast", args.threads)
 
 def run_pan_hier(args):
 
