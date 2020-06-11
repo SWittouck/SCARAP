@@ -9,6 +9,43 @@ from statistics import mean
 
 from utils import *
 
+def subset_idmat(matrix, rownames, rownames_sub):
+    """
+    Subsets an identity matrix. 
+    
+    Args:
+        matrix: An identity matrix as a numpy array
+        rownames: A list of rownames (= colnames)
+        rownames_sub: A list of rownames to select
+        
+    Returns:
+        A subset of the identity matrix
+        A subset of the rownames
+    """
+    ixs = [ix for ix, gene in enumerate(rownames) if gene in rownames_sub]
+    ixs = np.array(ixs)
+    matrix_sub = matrix[ixs[:, None], ixs]
+    rownames_sub = [rownames[ix] for ix in ixs]
+    return(matrix_sub, rownames_sub)
+
+def distmat_from_idmat(idmat):
+    """
+    Calculates a distance matrix.
+    
+    Args:
+        idmat: An identity matrix as a numpy array
+    
+    Returns:
+        A distance matrix in the format needed by the 
+            cluster.hierarchy.linkage function of scipy.
+    """
+    n = np.size(idmat, 0)
+    dm = []
+    for r in range(n - 1):
+        for c in range(r + 1, n):
+            dm.append(1 - idmat[r, c])
+    return(dm) 
+    
 def identity_matrix(seqrecords):
     '''
     Calculates a pairwise sequence identity matrix for a list of DNA sequences
