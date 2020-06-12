@@ -72,6 +72,7 @@ def update_linclusters(sequences, thresholds, dio_tmp, threads):
         An updated list of thresholds where the thresholds that have already
             been tried are removed.
     """
+    max_reprf = 10
     thresholds = thresholds.copy()
     write_fasta(sequences, f"{dio_tmp}/seqs.fasta")        
     for dir in ["sequenceDB", "logs", "tmp"]:
@@ -80,7 +81,7 @@ def update_linclusters(sequences, thresholds, dio_tmp, threads):
         f"{dio_tmp}/sequenceDB/db"], f"{dio_tmp}/logs/createdb.log", 
         threads = threads)
     n_lin = 0
-    while thresholds and n_lin <= 10:
+    while thresholds and n_lin <= max_reprf:
         id = str(thresholds[0])
         del thresholds[0]
         makedirs_smart(f"{dio_tmp}/clusterDB")
@@ -109,10 +110,11 @@ def add_reprfs(pan, idmat, repris, sequences):
     Returns:
         An updated pan table where a column "reprf" is added.
     """
+    max_reprf = 10
     pan = pan.drop(["reprf"], axis = 1, errors = "ignore")
     distmat = distmat_from_idmat(idmat)
     hclust = cluster.hierarchy.linkage(distmat, method = "average")
-    hclust_groups = cluster.hierarchy.cut_tree(hclust, n_clusters = 10)
+    hclust_groups = cluster.hierarchy.cut_tree(hclust, n_clusters = max_reprf)
     hclust_groups = [el[0] for el in hclust_groups]
     repris_df = pd.DataFrame({"repri": repris, "hclust_group": hclust_groups})
     pan = pan.reset_index().merge(repris_df, on = "repri").set_index("gene")
@@ -160,16 +162,18 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
     See split_family_recursive_TRE_F.
     """
     
+    max_reprf = 10
+    
     # if ten or fewer genes --> all genes are reprfs
-    if len(pan.index) <= 10:
+    if len(pan.index) <= max_reprf:
         
         pan["reprf"] = pan.index 
         
-    # if more than 10 genes --> reprfs are a subset of repris
+    # if more than max_reprf genes --> reprfs are a subset of repris
     else:
         
         # update repris and their idmat if necessary
-        if idmat is None or len(repris) <= 10:
+        if idmat is None or len(repris) <= max_reprf:
             
             n_lin = 0
             
@@ -183,7 +187,7 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
                 n_lin = genes_clusters["lincluster"].nunique()
                     
             # 2a) if enough linclusters: select repris from linclusters
-            if n_lin > 10:
+            if n_lin > max_reprf:
                 repris = genes_clusters["lincluster"].unique().tolist()
                 pan = pan.reset_index().merge(genes_clusters, on = "gene")
                 pan = pan.set_index("gene")
@@ -202,7 +206,7 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
             aln = read_fasta(f"{dio_tmp}/repris.aln")
             idmat = identity_matrix(aln)
 
-        # select (at max) 10 reprfs
+        # select (at max) max_reprf reprfs
         pan = add_reprfs(pan, idmat, repris, sequences)
         
     # build tree from reprfs
@@ -414,6 +418,8 @@ def split_family_recursive_TRE_F(pan, sequences, idmat, repris, thresholds,
         An pan object where the orthogroup column has been updated. 
     """
     
+    max_reprf = 10
+    
     family = pan.orthogroup.tolist()[0]
 
     if not split_possible(pan.genome.tolist()):
@@ -430,8 +436,8 @@ def split_family_recursive_TRE_F(pan, sequences, idmat, repris, thresholds,
         genes2 = pan2.index.tolist()
         sequences1 = [seq for seq in sequences if seq.id in genes1]
         sequences2 = [seq for seq in sequences if seq.id in genes2]
-        # idmat and repris are only necessary when there are > 10 genes:
-        if len(pan.index) > 10:
+        # idmat and repris are only necessary when there are > max_reprf genes:
+        if len(pan.index) > max_reprf:
             idmat1, repris1 = subset_idmat(idmat, repris, genes1)
             idmat2, repris2 = subset_idmat(idmat, repris, genes2)
         else:
@@ -562,7 +568,8 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
     Args:
         pan (Data Frame): Table with columns gene, genome and orthogroup 
             for the genes or a single gene family. 
-        strategy (str): Splitting strategy. [TRE, TRE-F, CLU, CLU-F, PRO]
+        strategy (str): Splitting strategy. [TRE, TRE-F, TRE-FS, CLU, CLU-F, 
+            PRO]
         din_fastas (str): Input folder with fasta file of gene family. 
         threads (int): Number of threads to use. 
         dio_tmp (str): Folder to store temporary files.
@@ -580,9 +587,12 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
     if strategy == "TRE":
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         pan = split_family_recursive_TRE(pan, sequences, threads, dio_tmp)
-    elif strategy == "TRE-F":
+    elif strategy in ["TRE-F", "TRE-FS"]:
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
-        thresholds = [0.50, 0.68, 0.84, 0.92, 0.96, 0.98, 0.99]
+        if strategy == "TRE-F":
+            thresholds = []
+        else:
+            thresholds = [0.50, 0.68, 0.84, 0.92, 0.96, 0.98, 0.99]
         pan = split_family_recursive_TRE_F(pan, sequences, idmat = None, 
             repris = None, thresholds = thresholds, threads = threads, 
             dio_tmp = dio_tmp)
