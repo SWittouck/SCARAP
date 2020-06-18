@@ -649,8 +649,9 @@ def infer_superfamilies(faafins, dout, threads):
     # create preclusters with cluster (could also be linclust)
     logging.info("creating preclusters")
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
-        f"{dout}/tmp", "-s", "7.5", "--max-seqs", "1000000", "-c", "0.5", 
-        "-e", "inf"], f"{dout}/logs/cluster.log", 
+        f"{dout}/tmp", "--max-seqs", "1000000", "-c", "0.5", "--cov-mode", "0",
+        "-e", "inf", "--min-seq-id", "0.1", "--cluster-mode", "0"], 
+        f"{dout}/logs/cluster.log", 
         skip_if_exists = f"{dout}/preclusterDB/db.index", threads = threads)
 
     # cluster the preclusters into the final clusters
@@ -661,10 +662,12 @@ def infer_superfamilies(faafins, dout, threads):
         skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
     run_mmseqs(["search", f"{dout}/profileDB/db",
         f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
-        f"{dout}/tmp", "-s", "7.5"], f"{dout}/logs/search.log",
+        f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"], 
+        f"{dout}/logs/search.log",
         skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
     run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
-        f"{dout}/clusterDB/db"], f"{dout}/logs/clust.log",
+        f"{dout}/clusterDB/db", "--cluster-mode", "2"],
+        f"{dout}/logs/clust.log",
         skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
 
     # create the tsv files with the preclusters and clusters
