@@ -1,3 +1,4 @@
+import collections
 import logging
 import math
 import numpy as np
@@ -17,6 +18,77 @@ from computers import *
 from callers import *
 
 ## strategy-independent splitting helpers
+    
+def split_pan(pan, tree, outgr):
+    """Split pan into pan1 and pan2 based on a tree and an outgroup node. 
+    
+    Args:
+        pan (DataFrame): A gene table with at least the columns reprf and 
+            orthogroup.
+        tree: An ete3 tree (= the root node of a tree)
+        outgr: A node in the tree
+        
+    Returns:
+        [pan1, pan2]
+    """
+    reprfs_subfam1 = outgr.get_leaf_names()
+    parent = outgr.up
+    outgr.detach()
+    reprfs_subfam2 = tree.get_leaf_names()
+    parent.add_child(outgr) # re-add the outgroup
+    pan1 = pan[pan["reprf"].isin(reprfs_subfam1)].copy()
+    pan2 = pan[pan["reprf"].isin(reprfs_subfam2)].copy()
+    family = pan.orthogroup.tolist()[0]
+    pan1.loc[:, "orthogroup"] = family + "_1"
+    pan2.loc[:, "orthogroup"] = family + "_2"
+    return([pan1, pan2])
+
+def lowest_cn_roots(tree, pan):
+    """Determine the set of lowest copy-number roots 
+    
+    Args:
+        tree: ete3 tree object where the leaf names correspond to the values of
+            the reprf column in pan
+        pan (DataFrame): Table with at least the columns reprf and genome
+        
+    Returns:
+        A list with references to the nodes that would be minimal copy number 
+            roots
+    """
+
+    # initialize list with reprfs and corresponding genomes 
+    reprfs_genomes = {}
+    for index, row in pan.iterrows():
+        reprfs_genomes.setdefault(row["reprf"], []).append(row["genome"])
+    reprfs_genomes = list(map(list, reprfs_genomes.items()))
+    
+    roots = []
+    min_av_cn = 100000000
+    
+    # loop over all nodes except the root
+    for node in tree.iter_descendants():
+        # initialize empty genome lists for partition 1 and 2
+        genomes1 = []
+        genomes2 = []
+        # loop over list with reprfs and corresponding genomes
+        for element in reprfs_genomes:
+            reprf = element[0]
+            genomes = element[1]
+            # append genomes of reprf to correct partition
+            if reprf in node:
+                genomes1.extend(genomes)
+            else:
+                genomes2.extend(genomes)
+        cn1 = collections.Counter(genomes1).values()
+        cn2 = collections.Counter(genomes2).values()
+        av_cn = (sum(cn1) + sum(cn2)) / (len(cn1) + len(cn2))
+        if av_cn < min_av_cn:
+            roots = [node]
+            min_av_cn = av_cn
+        elif av_cn == min_av_cn:
+            roots.append(node)
+            
+    return(roots)
     
 def assess_split(pan1, pan2, family):
     """Assess whether a family should be split into two subfamilies.
@@ -98,6 +170,9 @@ def update_linclusters(sequences, thresholds, dio_tmp, threads):
         
 def add_reprfs(pan, idmat, repris, sequences):
     """Adds reprfs to a pan table.
+    
+    Selects final representative sequences (reprfs) by performing hierarchical 
+    clustering on intermediate representative sequences (repris). 
     
     Helper function for the TRE-F(S) splitting strategy.
     
@@ -217,18 +292,21 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
         ["-m", "LG"])
     tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     
-    # split genes in subfam1 and subfam2
+    # split pan based on midpoint root
     midoutgr = tree.get_midpoint_outgroup()
-    reprfs_subfam1 = midoutgr.get_leaf_names()
-    midoutgr.detach()
-    reprfs_subfam2 = tree.get_leaf_names()
-    pan1 = pan[pan["reprf"].isin(reprfs_subfam1)].copy()
-    pan2 = pan[pan["reprf"].isin(reprfs_subfam2)].copy()
-    family = pan.orthogroup.tolist()[0]
-    pan1.loc[:, "orthogroup"] = family + "_1"
-    pan2.loc[:, "orthogroup"] = family + "_2"
+    pan1, pan2 = split_pan(pan, tree, midoutgr)
     
-    return([pan1, pan2, idmat, repris, thresholds])
+    # split pan based on minimal copy number root
+    roots = lowest_cn_roots(tree, pan)
+    if midoutgr in roots:
+        cnoutgr = midoutgr
+        # logging.info("cn root is midpoint root")
+    else:
+        cnoutgr = roots[0]
+        # logging.info("cn root is not midpoint root")
+    pan_cn1, pan_cn2 = split_pan(pan, tree, cnoutgr)
+    
+    return([pan1, pan2, pan_cn1, pan_cn2, idmat, repris, thresholds])
 
 def split_family_CLU(pan, sequences, threads, dio_tmp): 
     """Splits a family in two subfamilies.
@@ -426,14 +504,15 @@ def split_family_recursive_TRE_F(pan, sequences, idmat, repris, thresholds,
         logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
 
-    pan1, pan2, idmat, repris, thresholds = split_family_TRE_F(pan, sequences, 
-        idmat, repris, thresholds, threads, dio_tmp)
+    pan1, pan2, pan_cn1, pan_cn2, idmat, repris, thresholds = \
+        split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads, 
+        dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
 
-        genes1 = pan1.index.tolist()
-        genes2 = pan2.index.tolist()
+        genes1 = pan_cn1.index.tolist()
+        genes2 = pan_cn2.index.tolist()
         sequences1 = [seq for seq in sequences if seq.id in genes1]
         sequences2 = [seq for seq in sequences if seq.id in genes2]
         # idmat and repris are only necessary when there are > max_reprf genes:
@@ -445,10 +524,10 @@ def split_family_recursive_TRE_F(pan, sequences, idmat, repris, thresholds,
             idmat2 = None
             repris1 = None
             repris2 = None
-        pan1 = split_family_recursive_TRE_F(pan1, sequences1, idmat1, repris1, 
-            thresholds, threads, dio_tmp)
-        pan2 = split_family_recursive_TRE_F(pan2, sequences2, idmat2, repris2, 
-            thresholds, threads, dio_tmp)
+        pan1 = split_family_recursive_TRE_F(pan_cn1, sequences1, idmat1, 
+            repris1, thresholds, threads, dio_tmp)
+        pan2 = split_family_recursive_TRE_F(pan_cn2, sequences2, idmat2, 
+            repris2, thresholds, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
