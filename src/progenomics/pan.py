@@ -44,16 +44,16 @@ def split_pan(pan, tree, outgr):
     return([pan1, pan2])
 
 def lowest_cn_roots(tree, pan):
-    """Determine the set of lowest copy-number roots 
+    """Determine the set of lowest copy-number roots.
     
     Args:
         tree: ete3 tree object where the leaf names correspond to the values of
-            the reprf column in pan
-        pan (DataFrame): Table with at least the columns reprf and genome
+            the reprf column in pan.
+        pan (DataFrame): Table with at least the columns reprf and genome.
         
     Returns:
         A list with references to the nodes that would be minimal copy number 
-            roots
+            roots.
     """
 
     # initialize list with reprfs and corresponding genomes 
@@ -89,6 +89,103 @@ def lowest_cn_roots(tree, pan):
             roots.append(node)
             
     return(roots)
+    
+def partition_genomes(reprfs_genomes, node):
+    """Split genomes into two partitions using a tree. 
+    
+    Split genomes into two partitions based on their presence/absence in a 
+        phylogenetic tree. 
+    
+    Args: 
+        reprfs_genomes (list): List where each element is a list with two 
+            elements: a representative gene (reprf) and a list with the genomes 
+            of all genes represented by reprf.
+        node: An ete3 node (= tree) object.
+        
+    Returns: 
+        A list with the genomes of the genes in the first partition.
+        A list with the gneomes of the genes in the second partition. 
+    """
+    # initialize empty genome lists for partition 1 and 2
+    genomes1 = []
+    genomes2 = []
+    # loop over list with reprfs and corresponding genomes
+    for element in reprfs_genomes:
+        reprf = element[0]
+        genomes = element[1]
+        # append genomes of reprf to correct partition
+        if reprf in node:
+            genomes1.extend(genomes)
+        else:
+            genomes2.extend(genomes)
+    return(genomes1, genomes2)
+    
+def correct_root(root, tree, pan):
+    """Correct the root of a phylogenetic tree.
+    
+    Correct the root of a tree by selecting the root that shows the lowest
+    average copy number across both sides of the corresponding bipartion, 
+    while satisfying the restriction that all genomes present in both sides of 
+    the original bipartion (= genome overlap) are also in the genome overlap of 
+    the selected node. 
+    
+    Args: 
+        root: An ete3 node (= tree) that is present in tree.
+        tree: An ete3 node (= tree).
+        pan: A table with at least the columns reprf (corresponding to the tips
+            of tree) and genome.
+            
+    Returns:
+        An ete3 node representing an outgroup to the corrected root. 
+    """
+
+    # initialize list with reprfs and corresponding genomes 
+    reprfs_genomes = {}
+    for index, row in pan.iterrows():
+        reprfs_genomes.setdefault(row["reprf"], []).append(row["genome"])
+    reprfs_genomes = list(map(list, reprfs_genomes.items()))
+    
+    genomes1, genomes2 = partition_genomes(reprfs_genomes, root)
+    midpoint_overlap = set(genomes1) & set(genomes2) # intersection
+    
+    # only for logging purposes
+    fam = pan.orthogroup[0]
+    # def is_scg(genomes):
+    #     if (len(genomes) == 73 & len(set(genomes)) == 73):
+    #         return(True)
+    #     return(False)
+    # if is_scg(genomes1) or is_scg(genomes2):
+    #     logging.info(f"{fam}: midpoint root creates SCG")
+    
+    roots = []
+    min_av_cn = 100000000
+    
+    # loop over all nodes except the root
+    for node in tree.iter_descendants():
+        genomes1, genomes2 = partition_genomes(reprfs_genomes, node)
+        overlap = set(genomes1) & set(genomes2) # intersection
+        # if genomes that overlap in the midpoint bipartition do not all
+        # overlap in this partition --> split
+        if not midpoint_overlap.issubset(overlap):
+            continue
+        cn1 = collections.Counter(genomes1).values()
+        cn2 = collections.Counter(genomes2).values()
+        av_cn = (sum(cn1) + sum(cn2)) / (len(cn1) + len(cn2))
+        if av_cn < min_av_cn:
+            roots = [node]
+            min_av_cn = av_cn
+            logging.info(f"new min av cn: {min_av_cn}")
+        elif av_cn == min_av_cn:
+            roots.append(node)
+  
+    if root in roots:
+        cnoutgr = root
+        logging.info(f"{fam}: cn root is midpoint root")
+    else:
+        cnoutgr = roots[0]
+        logging.info(f"{fam}: cn root is not midpoint root")
+        
+    return(cnoutgr)
     
 def assess_split(pan1, pan2, family):
     """Assess whether a family should be split into two subfamilies.
@@ -144,7 +241,7 @@ def update_linclusters(sequences, thresholds, dio_tmp, threads):
         An updated list of thresholds where the thresholds that have already
             been tried are removed.
     """
-    max_reprf = 10
+    max_reprf = 100
     thresholds = thresholds.copy()
     write_fasta(sequences, f"{dio_tmp}/seqs.fasta")        
     for dir in ["sequenceDB", "logs", "tmp"]:
@@ -185,7 +282,7 @@ def add_reprfs(pan, idmat, repris, sequences):
     Returns:
         An updated pan table where a column "reprf" is added.
     """
-    max_reprf = 10
+    max_reprf = 100
     pan = pan.drop(["reprf"], axis = 1, errors = "ignore")
     distmat = distmat_from_idmat(idmat)
     hclust = cluster.hierarchy.linkage(distmat, method = "average")
@@ -237,7 +334,7 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
     See split_family_recursive_TRE_F.
     """
     
-    max_reprf = 10
+    max_reprf = 100
     
     # if ten or fewer genes --> all genes are reprfs
     if len(pan.index) <= max_reprf:
@@ -297,14 +394,14 @@ def split_family_TRE_F(pan, sequences, idmat, repris, thresholds, threads,
     pan1, pan2 = split_pan(pan, tree, midoutgr)
     
     # split pan based on minimal copy number root
-    roots = lowest_cn_roots(tree, pan)
-    if midoutgr in roots:
-        cnoutgr = midoutgr
-        # logging.info("cn root is midpoint root")
-    else:
-        cnoutgr = roots[0]
-        # logging.info("cn root is not midpoint root")
+    cnoutgr = correct_root(midoutgr, tree, pan)
     pan_cn1, pan_cn2 = split_pan(pan, tree, cnoutgr)
+    
+    # # for diagnostics: actually root the tree and write it out
+    # tree.set_outgroup(cnoutgr)
+    # dout_trees = f"{dio_tmp}/../../trees"
+    # os.makedirs(dout_trees, exist_ok = True)
+    # tree.write(outfile = f"{dout_trees}/{pan.orthogroup[0]}.tre")
     
     return([pan1, pan2, pan_cn1, pan_cn2, idmat, repris, thresholds])
 
@@ -496,7 +593,7 @@ def split_family_recursive_TRE_F(pan, sequences, idmat, repris, thresholds,
         An pan object where the orthogroup column has been updated. 
     """
     
-    max_reprf = 10
+    max_reprf = 100
     
     family = pan.orthogroup.tolist()[0]
 
