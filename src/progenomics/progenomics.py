@@ -66,10 +66,10 @@ def parse_arguments():
     parser_pan_parent = argparse.ArgumentParser(add_help = False)
     parser_pan_parent.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
-    parser_pan_parent.add_argument("-d", "--method", default = "TRE-F",
-        choices = ["TRE", "TRE-F", "TRE-FS", "CLU", "CLU-F", "PRO", "ORT-B", 
-        "ORT-D"],
-        help = "pangenome inference method [default: TRE-F]")
+    parser_pan_parent.add_argument("-d", "--method", default = "LH-F",
+        choices = ["H", "T", "H-F", "LH-F", "HT-F", "LHT-F", "P", "O-B", 
+            "O-D"],
+        help = "pangenome inference method [default: LH-F]")
     parser_pan_parent.add_argument("outfolder",
         help = "output folder for pangenome file")
     parser_pan_parent.add_argument("-s", "--species",
