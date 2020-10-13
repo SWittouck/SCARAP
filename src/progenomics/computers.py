@@ -245,9 +245,12 @@ def filter_groups(pangenome, orthogroups):
     pangenome = pangenome[pangenome.orthogroup.isin(orthogroups)]
     return(pangenome)
 
-def select_representative(records):
+def select_representative(records, longest = False):
     records = sorted(records, key = lambda x: len(x))
-    return(records[len(records) // 2])
+    if longest:
+        return(records[-1])
+    else: 
+        return(records[len(records) // 2])
 
 """
 Function to align a SeqRecord of nucleotide sequences, given a SeqRecord
