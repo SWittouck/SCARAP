@@ -78,7 +78,7 @@ def run_pan_hier(args):
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths, faapathsfio)
         run_pan_nonhier(Namespace(faapaths = faapathsfio, outfolder = dout,
-            threads = args.threads, method = "LHT-F"))
+            threads = args.threads, method = "FH"))
         speciespanfio = os.path.join(dout, "pangenome.tsv")
         speciespanfios.append(speciespanfio)
         reprfio = os.path.join(dout, species + ".faa")
@@ -94,7 +94,7 @@ def run_pan_hier(args):
     os.makedirs(metapandio, exist_ok = True)
     run_pan_nonhier(Namespace(faapaths = reprpathsfio,
         outfolder = metapandio, threads = args.threads,
-        method = "LHT-F"))
+        method = "FH"))
 
     logging.info("started inflating metapangenome with species pangenomes")
     speciespans = [read_genes(panfin) for panfin in speciespanfios]

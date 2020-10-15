@@ -15,7 +15,48 @@ from readerswriters import *
 from computers import *
 from callers import *
 
-## ficlin helpers
+## helpers - ficlin module (F)
+
+def create_prefdb(TDB, PDB):
+    """Initialize a fake prefilter database.
+    
+    Create a fake prefilter database to be used for searching all queries
+    against all targets.
+    
+    See https://github.com/soedinglab/MMseqs2/wiki#how-to-create-a-fake-prefiltering-for-all-vs-all-alignments
+    
+    Args:
+        TDB (str): The path to the target database, but relative to the prefilter 
+            database!!
+        PDB (str): The path to the prefilter database. 
+    """
+    os.symlink(f"{TDB}.index", PDB)
+    with open(f"{PDB}.dbtype", "w") as hout_PDB:
+        chars = [chr(7)] + [chr(0)] * 3
+        for char in chars:
+            hout_PDB.write(char)
+    
+def update_prefdb(QDB, TDB, PDB):
+    """Setup the queries for a fake prefilter database. 
+    
+    Set the queries of a fake prefilter database to be used for searching all
+    queries against all targets.
+    
+    See https://github.com/soedinglab/MMseqs2/wiki#how-to-create-a-fake-prefiltering-for-all-vs-all-alignments
+    
+    Args: 
+        QDB (str): The path to the query database.
+        TDB (str): The path to the target database.
+        PDB (str): The path to the prefilter database.
+    """
+    index_size = os.path.getsize(f"{TDB}.index")
+    open(f"{PDB}.index", "w").close()
+    with open(f"{QDB}.index", "r") as hin_QDB:
+        with open(f"{PDB}.index", "a") as hout_PDB:
+            for query_line in hin_QDB:
+                values = query_line.strip().split("\t")
+                towrite = "\t".join([values[0], "0", str(index_size)])
+                hout_PDB.write(f"{towrite}\n")
 
 def run_ficlin(sequences, n_clusters, dout_tmp, threads):
     """Partitions sequences in a fixed number of clusters. 
@@ -36,9 +77,6 @@ def run_ficlin(sequences, n_clusters, dout_tmp, threads):
         A list containing the cluster number for each sequence in sequences.
     """
   
-    # save path of this script 
-    scripts_path = os.path.dirname(os.path.realpath(__file__))
-  
     # construct target and prefilter dbs
     makedirs_smart(f"{dout_tmp}")
     for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
@@ -47,9 +85,7 @@ def run_ficlin(sequences, n_clusters, dout_tmp, threads):
     run_mmseqs(["createdb", f"{dout_tmp}/seqs.fasta", 
         f"{dout_tmp}/sequenceDB/db"], f"{dout_tmp}/logs/createdb.log", 
         threads = threads)
-    subprocess.call([f"{scripts_path}/create_prefdb.sh", 
-        f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/prefDB/db"], 
-        stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+    create_prefdb("../sequenceDB/db", f"{dout_tmp}/prefDB/db")
     
     # initialize a hit matrix 
     hits = np.zeros([len(sequences), n_clusters])
@@ -83,10 +119,8 @@ def run_ficlin(sequences, n_clusters, dout_tmp, threads):
             threads = threads)
             
         # run mmseqs align
-        subprocess.call([f"{scripts_path}/update_prefdb.sh", 
-            f"{dout_tmp}/seedDB/db", f"{dout_tmp}/sequenceDB/db", 
-            f"{dout_tmp}/prefDB/db"], stdout = subprocess.DEVNULL, 
-            stderr = subprocess.DEVNULL)
+        update_prefdb(f"{dout_tmp}/seedDB/db", f"{dout_tmp}/sequenceDB/db", 
+            f"{dout_tmp}/prefDB/db")
         run_mmseqs(["align", f"{dout_tmp}/seedDB/db",
             f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/prefDB/db", 
             f"{dout_tmp}/alignmentDB/db"], 
@@ -119,8 +153,18 @@ def run_ficlin(sequences, n_clusters, dout_tmp, threads):
     shutil.rmtree(dout_tmp)
     
     return(clusters)
+    
+## helpers - hierarchical clustering module (H)
+    
+def hclusts(distmat, n_clusters):
+  
+    hclust = cluster.hierarchy.linkage(distmat, method = "average")
+    clusters = cluster.hierarchy.cut_tree(hclust, n_clusters = n_clusters)
+    clusters = [el[0] for el in clusters]
+    
+    return(clusters)
 
-## tree-related helpers
+## helpers - tree inference module (T)
     
 def split_pan(pan, tree, outgr):
     """Split pan into pan1 and pan2 based on a tree and an outgroup node. 
@@ -283,7 +327,7 @@ def correct_root(root, tree, pan):
         
     return(cnoutgr)
     
-## general helpers  
+## general helpers
     
 def select_reps(genes, clusters, sequences):
     """Select representative sequences for a set of clusters.
@@ -300,16 +344,18 @@ def select_reps(genes, clusters, sequences):
     Returns:
         A DataFrame with the columns gene and rep. 
     """
-    genes_clusters = pd.DataFrame({"gene": genes, "cluster": clusters})
+    genes = pd.DataFrame({"gene": genes, "cluster": clusters})
+    n_genes = len(genes.index)
+    # add sequences to gene table without changing order
     genes_seqs = pd.DataFrame({"gene": [s.id for s in sequences], 
         "sequence": sequences})
-    genes = genes_clusters.merge(genes_seqs, on = "gene")
-    if (len(genes.index) != len(genes_clusters.index)):
+    genes = genes.merge(genes_seqs, on = "gene", how = "left")
+    if (genes.sequence.isnull().values.any()):
         logging.error("select_reps: not all sequences were given")
+    # the following doesn't change the order of the rows
     genes["rep"] = genes.groupby("cluster")["sequence"].\
         transform(lambda x: select_representative(x.tolist()).id)
-    genes = genes.drop(["cluster", "sequence"], axis = 1)
-    return(genes)
+    return(genes.rep.tolist())
     
 def assess_split(pan1, pan2, family):
     """Assess whether a family should be split into two subfamilies.
@@ -348,10 +394,10 @@ def assess_split(pan1, pan2, family):
 
 ## family splitting functions
 
-def split_family_H(pan, sequences, threads, dio_tmp): 
+def split_family_H_nl(pan, sequences, threads, dio_tmp):
     """Splits a family in two subfamilies.
-    
-    See split_family_recursive_H.
+
+    See split_family_recursive_H_nl.
     """
     write_fasta(sequences, f"{dio_tmp}/seqs.fasta")
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
@@ -374,10 +420,10 @@ def split_family_H(pan, sequences, threads, dio_tmp):
     pan2.loc[:, "orthogroup"] = family + "_2"
     return([pan1, pan2])
 
-def split_family_T(pan, sequences, threads, dio_tmp):
+def split_family_T_nl(pan, sequences, threads, dio_tmp):
     """Splits a family in two subfamilies.
     
-    See split_family_recursive_T.
+    See split_family_recursive_T_nl.
     """
     write_fasta(sequences, f"{dio_tmp}/seqs.fasta")
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
@@ -395,184 +441,114 @@ def split_family_T(pan, sequences, threads, dio_tmp):
     pan2.loc[:, "orthogroup"] = family + "_2"
     return([pan1, pan2])
     
-def split_family_H_F(pan, hclust, genes):
+def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps, 
+    threads, dio_tmp):
     """Splits a family in two subfamilies.
     
-    See split_family_recursive_H_F.
-    """
-    hclust1 = hclust.get_left()
-    hclust2 = hclust.get_right()
-    genes1 = [genes[i] for i in hclust1.pre_order(lambda x: x.id)]
-    genes2 = [genes[i] for i in hclust2.pre_order(lambda x: x.id)]
-    pan1 = pan.loc[genes1].copy()
-    pan2 = pan.loc[genes2].copy()
-    family = pan.orthogroup.tolist()[0]
-    pan1.loc[:, "orthogroup"] = family + "_1"
-    pan2.loc[:, "orthogroup"] = family + "_2"
-    return([pan1, pan2, hclust1, hclust2])
-
-def split_family_LHT_F(pan, strategy, sequences, idmat, idmat_names, threads, 
-    dio_tmp):
-    """Splits a family in two subfamilies.
-    
-    See split_family_recursive_LHT_F.
+    See split_family_recursive_FH.
     """
     
-    # some extra parameters
-    max_seqs_hclust = 30
-    max_seqs_tree = 100
-    
-    # determine initial step requests
-    linclust_requested = 'L' in strategy
-    hclust_requested = 'H' in strategy
-    tree_requested = 'T' in strategy
-    
-    # turn off linclust and/or hclust if very few sequences
-    n_seqs = len(pan.index)
-    if hclust_requested and n_seqs <= max_seqs_hclust:
-        linclust_requested = False
-    if tree_requested and n_seqs <= max_seqs_tree:
-        linclust_requested = False 
-        hclust_requested = False
-        
-    # set default for linreps_updated
-    linreps_updated = False
-    
-    # perform linclust steps if requested
-    if linclust_requested:
-      
-        # initialize linreps to constants if not yet present
-        if not "linrep" in pan:
-            pan["linrep"] = "c" 
-      
-        linreps = pan["linrep"].unique().tolist()
-        n_linreps = len(linreps)
-      
-        # update linreps if necessary
-        if n_linreps <= max([max_seqs_hclust // 2, 4]):
-          
-            # perform ficlin
-            clusters = run_ficlin(sequences, n_clusters = max_seqs_hclust, 
-                dout_tmp = f"{dio_tmp}/ficlin", threads = threads)
-            genes = [s.id for s in sequences]
-            genes_reps = select_reps(genes, clusters, sequences)
-            pan = pan.drop(["linrep"], axis = 1, errors = "ignore")
-            pan = pan.reset_index().merge(genes_reps, on = "gene")
-            pan = pan.set_index("gene")
-            pan = pan.rename(columns = {"rep": "linrep"})
+    update_hclust = False
+    # if reps not necessary, for the first time: ...
+    if not ficlin or len(pan.index) <= max_reps:
+        if hclust is None or hclust.get_count() != len(pan.index):
+            pan["rep"] = pan.index
+            update_hclust = True
+    # if parent reps are too few to re-use: ...
+    else:
+        n_reps = len(pan["rep"].unique())
+        if n_reps < min_reps:
+            clusters = run_ficlin(sequences, max_reps, f"{dio_tmp}/ficlin", 
+                threads)
+            pan["rep"] = select_reps(pan.index.tolist(), clusters, sequences)
+            update_hclust = True
             
-            # indicate that linreps were updated
-            linreps_updated = True
-      
-            linreps = pan["linrep"].unique().tolist()
-            n_linreps = len(linreps)
-            
-        # turn off hclust if trees requested and very few linreps
-        if tree_requested and n_linreps <= max_seqs_tree:
-            hclust_requested = False
-            
-    # perform hclust steps if requested
-    if hclust_requested:
-      
-        # check if idmat needs an update and prepare
-        update_idmat = False
-        if linclust_requested:
-            if linreps_updated: 
-            # --> update idmat from linreps
-                update_idmat = True
-                idmat_seqs = [seq for seq in sequences if seq.id in linreps]
-                idmat_names = [seq.id for seq in idmat_seqs]
-        else:
-            if idmat is None or len(idmat_names) < len(pan.index): 
-            # --> update idmat from all
-                update_idmat = True
-                idmat_seqs = sequences
-                idmat_names = [seq.id for seq in idmat_seqs]
-            
-        # update idmat if necessary
-        if update_idmat:
-            logging.info(f"aligning {len(idmat_names)} sequences")
-            write_fasta(idmat_seqs, f"{dio_tmp}/idmat_seqs.fasta")
-            run_mafft(f"{dio_tmp}/idmat_seqs.fasta", 
-                f"{dio_tmp}/idmat_seqs.aln", threads)
-            aln = read_fasta(f"{dio_tmp}/idmat_seqs.aln")
-            idmat = identity_matrix(aln)
-            
-        # perform hclust
+    # update hclust if requested, otherwise use parent hclust
+    if update_hclust:
+        repseqs = [s for s in sequences if s.id in pan["rep"].unique()]
+        reps = [s.id for s in repseqs]
+        logging.info(f"aligning {len(reps)} sequences")
+        write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
+        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
+            threads)
+        aln = read_fasta(f"{dio_tmp}/repseqs.aln")
+        idmat = identity_matrix(aln)
         distmat = distmat_from_idmat(idmat)
         hclust = cluster.hierarchy.linkage(distmat, method = "average")
-        
-        # select hclustreps if necessary 
-        if tree_requested:          
-            clusters = cluster.hierarchy.cut_tree(hclust, 
-                n_clusters = max_seqs_tree)
-            clusters = [el[0] for el in clusters]
-            tips = select_reps(idmat_names, clusters, sequences)
-            pan = pan.drop(["hclustrep"], axis = 1, errors = "ignore")
-            if linclust_requested:
-                tips = tips.rename(columns = {"rep": "linrep"})
-                pan = pan.merge(tips, on = "linrep")
-            else:
-                tips = tips.rename(columns = {"rep": "gene"})
-                pan = pan.reset_index().merge(tips, on = "gene")
-                pan = pan.set_index("gene")
+        hclust = cluster.hierarchy.to_tree(hclust)
+        for leaf in hclust.pre_order(lambda x: x):
+            leaf.id = reps[leaf.id]
+    
+    # split pan, sequences and hclust
+    hclust1 = hclust.get_left()
+    hclust2 = hclust.get_right()
+    reps1 = hclust1.pre_order(lambda x: x.id)
+    reps2 = hclust2.pre_order(lambda x: x.id)
+    pan1 = pan[pan["rep"].isin(reps1)].copy()
+    pan2 = pan[pan["rep"].isin(reps2)].copy()
+    sequences1 = [s for s in sequences if s.id in pan1.index]
+    sequences2 = [s for s in sequences if s.id in pan2.index]
+    
+    # give the subfamilies names 
+    family = pan.orthogroup.tolist()[0]    
+    pan1.loc[:, "orthogroup"] = family + "_1"
+    pan2.loc[:, "orthogroup"] = family + "_2"
+    
+    return([pan1, pan2, sequences1, sequences2, hclust1, hclust2])
+    
+def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps, 
+    threads, dio_tmp):
+    """Splits a family in two subfamilies.
+    
+    !! not finished and not tested
+    
+    See split_family_recursive_FT.
+    """
+    
+    update_tree = False
+    # if reps not necessary, for the first time: ...
+    if not ficlin or len(pan.index) <= max_reps:
+        if tree is None or tree.get_count() != len(pan.index):
+            pan["rep"] = pan.index
+            update_tree = True
+    # if parent reps are too few to re-use: ...
+    else:
+        n_reps = len(pan["rep"].unique())
+        if n_reps < min_reps:
+            clusters = run_ficlin(sequences, max_reps, f"{dio_tmp}/ficlin", 
+                threads)
+            pan["rep"] = select_reps(pan.index.tolist(), clusters, sequences)
+            update_tree = True
             
-    # infer tree if requested 
-    if tree_requested:
-      
-        if hclust_requested:
-            seqs = [seq for seq in sequences if seq.id in 
-                pan.hclustrep.unique().tolist()]
-            pan.rep = pan.hclustrep
-            
-        elif linclust_requested:
-            seqs = [seq for seq in sequences if seq.id in 
-                pan.linrep.unique().tolist()]
-            pan.rep = pan.linrep
-        
-        # remark: this can only happen in T-F, which should re-use the aln
-        else:
-            seqs = sequences
-            pan.rep = pan.gene
-      
-        write_fasta(seqs, f"{dio_tmp}/seqs.fasta")
-        run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
-        run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
+    # update tree if requested, otherwise use parent tree
+    if update_tree:
+        repseqs = [s for s in sequences if s.id in pan["rep"].unique()]
+        reps = [s.id for s in repseqs]
+        logging.info(f"aligning {len(reps)} sequences")
+        write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
+        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
+            threads)
+        run_iqtree(f"{dio_tmp}/repseqs.aln", f"{dio_tmp}/tree", threads, 
             ["-m", "LG"])
         tree = Tree(f"{dio_tmp}/tree/tree.treefile")
-        
-    # split pan based on hclust
-    if not tree_requested:
-      
-        clusters = cluster.hierarchy.cut_tree(hclust, n_clusters = 2)
-        tips_subfam1 = [tip for tip, cl in zip(idmat_names, clusters) 
-            if cl[0] == 0]
-        tips_subfam2 = [tip for tip, cl in zip(idmat_names, clusters) 
-            if cl[0] == 1]
-            
-        if linclust_requested:
-            pan1 = pan[pan["linrep"].isin(tips_subfam1)].copy()
-            pan2 = pan[pan["linrep"].isin(tips_subfam2)].copy()
-        else:
-            pan1 = pan.loc[tips_subfam1].copy()
-            pan2 = pan.loc[tips_subfam2].copy()
-        
-        family = pan.orthogroup.tolist()[0]    
-        pan1.loc[:, "orthogroup"] = family + "_1"
-        pan2.loc[:, "orthogroup"] = family + "_2"
-        
-    # split pan based on tree
-    else:
     
-        # split pan based on midpoint root
-        midoutgr = tree.get_midpoint_outgroup()
-        pan1, pan2 = split_pan(pan, tree, midoutgr)
-        
-        # # split pan based on minimal copy number root
-        # cnoutgr = correct_root(midoutgr, tree, pan)
-        # pan_cn1, pan_cn2 = split_pan(pan, tree, cnoutgr)
+    # split pan based on midpoint root
+    # TO ADAPT!! we also need: tree1 and tree2
+    midoutgr = tree.get_midpoint_outgroup()
+    pan1, pan2 = split_pan(pan, tree, midoutgr)
+    sequences1 = [s for s in sequences if s.id in pan1.index]
+    sequences2 = [s for s in sequences if s.id in pan2.index]
     
-    return([pan1, pan2, idmat, idmat_names])
+    # # split pan based on minimal copy number root
+    # cnoutgr = correct_root(midoutgr, tree, pan)
+    # pan_cn1, pan_cn2 = split_pan(pan, tree, cnoutgr)
+    
+    # give the subfamilies names 
+    family = pan.orthogroup.tolist()[0]    
+    pan1.loc[:, "orthogroup"] = family + "_1"
+    pan2.loc[:, "orthogroup"] = family + "_2"
+    
+    return([pan1, pan2, sequences1, sequences2, tree1, tree2])
 
 def split_family_P(pan, sequences, threads, dio_tmp):
     """Splits a family in two subfamilies.
@@ -650,12 +626,48 @@ def split_family_P(pan, sequences, threads, dio_tmp):
     family = pan.orthogroup.tolist()[0]
     pan1.loc[:, "orthogroup"] = family + "_1"
     pan2.loc[:, "orthogroup"] = family + "_2"
+    
     return([pan1, pan2])
     
 ## recursive family splitting functions
 
-def split_family_recursive_H(pan, sequences, threads, dio_tmp):
-    """Splits up a gene family using the H strategy. 
+def split_family_recursive_H_nl(pan, sequences, threads, dio_tmp):
+    """Splits up a gene family using the H_nl strategy.
+
+    Args:
+        pan (DataFrame): A gene table for a single gene family, with the
+            columns gene, genome and orthogroup.
+        sequences (list): A list with one SeqRecord object per row in pan.
+        threads (int): The number of threads to use.
+        dio_tmp (str): Folder to store temporary files.
+
+    Returns:
+        An pan object where the orthogroup column has been updated.
+    """
+
+    family = pan.orthogroup.tolist()[0]
+
+    if not split_possible(pan.genome.tolist()):
+        logging.info(f"{family}: {len(pan.index)} genes - split not an option")
+        return(pan)
+
+    pan1, pan2 = split_family_H_nl(pan, sequences, threads, dio_tmp)
+    split = assess_split(pan1, pan2, family)
+
+    if split:
+
+        genes1 = pan1.index.tolist()
+        genes2 = pan2.index.tolist()
+        sequences1 = [seq for seq in sequences if seq.id in genes1]
+        sequences2 = [seq for seq in sequences if seq.id in genes2]
+        pan1 = split_family_recursive_H_nl(pan1, sequences1, threads, dio_tmp)
+        pan2 = split_family_recursive_H_nl(pan2, sequences2, threads, dio_tmp)
+        pan = pd.concat([pan1, pan2])
+
+    return(pan)
+
+def split_family_recursive_T_nl(pan, sequences, threads, dio_tmp):
+    """Splits up a gene family using the T-nl strategy. 
     
     Args:
         pan (DataFrame): A gene table for a single gene family, with the
@@ -674,7 +686,7 @@ def split_family_recursive_H(pan, sequences, threads, dio_tmp):
         logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
     
-    pan1, pan2 = split_family_H(pan, sequences, threads, dio_tmp)
+    pan1, pan2 = split_family_T_nl(pan, sequences, threads, dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
@@ -683,49 +695,15 @@ def split_family_recursive_H(pan, sequences, threads, dio_tmp):
         genes2 = pan2.index.tolist()
         sequences1 = [seq for seq in sequences if seq.id in genes1]
         sequences2 = [seq for seq in sequences if seq.id in genes2]
-        pan1 = split_family_recursive_H(pan1, sequences1, threads, dio_tmp)
-        pan2 = split_family_recursive_H(pan2, sequences2, threads, dio_tmp)
+        pan1 = split_family_recursive_T_nl(pan1, sequences1, threads, dio_tmp)
+        pan2 = split_family_recursive_T_nl(pan2, sequences2, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
 
-def split_family_recursive_T(pan, sequences, threads, dio_tmp):
-    """Splits up a gene family using the T strategy. 
-    
-    Args:
-        pan (DataFrame): A gene table for a single gene family, with the
-            columns gene, genome and orthogroup. 
-        sequences (list): A list with one SeqRecord object per row in pan.
-        threads (int): The number of threads to use. 
-        dio_tmp (str): Folder to store temporary files. 
-        
-    Returns: 
-        An pan object where the orthogroup column has been updated. 
-    """
-    
-    family = pan.orthogroup.tolist()[0]
-    
-    if not split_possible(pan.genome.tolist()):
-        logging.info(f"{family}: {len(pan.index)} genes - split not an option")
-        return(pan)
-    
-    pan1, pan2 = split_family_T(pan, sequences, threads, dio_tmp)
-    split = assess_split(pan1, pan2, family)
-    
-    if split:
-
-        genes1 = pan1.index.tolist()
-        genes2 = pan2.index.tolist()
-        sequences1 = [seq for seq in sequences if seq.id in genes1]
-        sequences2 = [seq for seq in sequences if seq.id in genes2]
-        pan1 = split_family_recursive_T(pan1, sequences1, threads, dio_tmp)
-        pan2 = split_family_recursive_T(pan2, sequences2, threads, dio_tmp)
-        pan = pd.concat([pan1, pan2])
-        
-    return(pan)
-
-def split_family_recursive_H_F(pan, hclust, genes):
-    """Splits up a gene family using the H-F strategy. 
+def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps, 
+    max_reps, threads, dio_tmp):
+    """Splits up a gene family using the H or FH strategy. 
     
     See [https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.\
         hierarchy.to_tree.html#scipy.cluster.hierarchy.to_tree]. 
@@ -733,12 +711,15 @@ def split_family_recursive_H_F(pan, hclust, genes):
     Args:
         pan (DataFrame): A gene table for a single gene family, with the
             columns gene, genome and orthogroup. 
+        sequences (list): A list with one SeqRecord object per row in pan, in 
+            the same order. 
         hclust: An hclust object from scipy.hierarchy.cluster in the form of a 
-            tree. 
-        genes (list): Tip names of the hclust object; tip ids of hclust 
-            correspond to indices in genes. Unlike the hclust object, the 
-            genes aren't split in iterations of the recursion. Otherwise, the
-            tip ids would match the wrong indices. 
+            tree; the tip ids should be gene names. 
+        finclin (bool): Should ficlin be used to pick representatives?
+        min_reps (int): The minimum number of representatives to use. 
+        max_reps (int): The maximum number of representatives to use. 
+        threads (int): The number of threads to use.
+        dio_tmp (str): Folder to store temporary files.
         
     Returns: 
         An pan object where the orthogroup column has been updated. 
@@ -747,90 +728,59 @@ def split_family_recursive_H_F(pan, hclust, genes):
     family = pan.orthogroup.tolist()[0]
     
     if not split_possible(pan.genome.tolist()):
-        logging.info(f"{family}: {len(pan.index)} genes - split not an option")
+        # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
     
-    pan1, pan2, hclust1, hclust2 = split_family_H_F(pan, hclust, genes)
+    pan1, pan2, sequences1, sequences2, hclust1, hclust2 = split_family_FH(pan,
+        sequences, hclust, ficlin, min_reps, max_reps, threads, dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
 
-        pan1 = split_family_recursive_H_F(pan1, hclust1, genes)
-        pan2 = split_family_recursive_H_F(pan2, hclust2, genes)
+        pan1 = split_family_recursive_FH(pan1, sequences1, hclust1, ficlin, 
+            min_reps, max_reps, threads, dio_tmp)
+        pan2 = split_family_recursive_FH(pan2, sequences2, hclust2, ficlin, 
+            min_reps, max_reps, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
 
-def split_family_recursive_LHT_F(pan, strategy, sequences, idmat, idmat_names, 
-    threads, dio_tmp):
-    """Splits up a gene family using the LHT_F strategy, or subsets of it. 
-    
-    This splitting function implements three splitting strategy components:
-        - ficlin (L): my own linear-time clustering algorithm
-        - hclust (H): average-linkage hieararchical clustering
-        - tree inference (T): phylogeny inference by IQTREE
-    
-    Ficlin can quickly select a fixed number of representative sequences
-    ("linreps") from a larger set. It is super scalable. Hclust can be used to
-    propose a bipartition of the sequences (by extracting the two top-level
-    clusters) or to make a representative subset of a given number of
-    sequences ("hclustreps"). It is relatively scalable. Tree inference can
-    also be used to propose a bipartition. It is not very scalable.
-    
-    A splitting strategy needs the H and/or T component, but otherwise all
-    combinations are theoretically possible: H, T, LH, LT, HT, LHT. The
-    function makes sure that information from the parent gene family is
-    re-used in the splitting process if available (linclusters, distmat;
-    re-use of a tree is not yet implemented). Because of this, we add "-F"
-    (for "fast") to the strategy names, as in "LHT-F".
+def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps, 
+    max_reps, threads, dio_tmp):
+    """Splits up a gene family using the T or FT strategy. 
     
     Args:
-        pan (DataFrame): A table with the columns gene, genome and orthogroup, 
-            indexed on the gene column.
-        strategy (str): The name of the strategy to use. 
-            ["H-F", "T-F", "LH-F", "LT-F", "HT-F", "LHT-F"]
-        sequences (list): A list with one SeqRecord object per row in pan.
-        idmat (array): A matrix with percentage identity values for all repris.
-        idmat_names (list): A list with the names of the genes of idmat, in 
-            the same order as the rows/columns of idmat. 
-        threads (int): The number of threads to use. 
-        dio_tmp (str): Folder to store temporary files. 
+        pan (DataFrame): A gene table for a single gene family, with the
+            columns gene, genome and orthogroup. 
+        sequences (list): A list with one SeqRecord object per row in pan, in 
+            the same order. 
+        tree: An ete3 tree object. 
+        finclin (bool): Should ficlin be used to pick representatives?
+        min_reps (int): The minimum number of representatives to use. 
+        max_reps (int): The maximum number of representatives to use. 
+        threads (int): The number of threads to use.
+        dio_tmp (str): Folder to store temporary files.
         
     Returns: 
         An pan object where the orthogroup column has been updated. 
     """
     
-    max_seqs_tree = 100
-    
     family = pan.orthogroup.tolist()[0]
-
+    
     if not split_possible(pan.genome.tolist()):
         # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
-
-    pan1, pan2, idmat, idmat_names = split_family_LHT_F(pan, strategy, 
-        sequences, idmat, idmat_names, threads, dio_tmp)
+    
+    pan1, pan2, sequences1, sequences2, tree1, tree2 = split_family_FT(pan,
+        sequences, tree, ficlin, min_reps, max_reps, threads, dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
 
-        genes1 = pan1.index.tolist()
-        genes2 = pan2.index.tolist()
-        sequences1 = [seq for seq in sequences if seq.id in genes1]
-        sequences2 = [seq for seq in sequences if seq.id in genes2]
-        # idmat is not necessary if few sequences and tree requested
-        if 'T' in strategy and len(pan.index) <= max_seqs_tree:
-            idmat1 = None
-            idmat2 = None
-            idmat_names1 = None
-            idmat_names2 = None
-        else:
-            idmat1, idmat_names1 = subset_idmat(idmat, idmat_names, genes1)
-            idmat2, idmat_names2 = subset_idmat(idmat, idmat_names, genes2)
-        pan1 = split_family_recursive_LHT_F(pan1, strategy, sequences1, idmat1,
-            idmat_names1, threads, dio_tmp)
-        pan2 = split_family_recursive_LHT_F(pan2, strategy, sequences2, idmat2,
-            idmat_names2, threads, dio_tmp)
+        pan1 = split_family_recursive_FT(pan1, sequences1, tree1, ficlin, 
+            min_reps, max_reps, threads, dio_tmp)
+        pan2 = split_family_recursive_FT(pan2, sequences2, tree2, ficlin, 
+            min_reps, max_reps, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
@@ -878,7 +828,7 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
     Args:
         pan (Data Frame): Table with columns gene, genome and orthogroup 
             for the genes or a single gene family. 
-        strategy (str): Splitting strategy. [H, T, H-F, LH-F, HT-F, LHT-F, P]
+        strategy (str): Splitting strategy. [H-nl, T-nl, H, LH, HT, LHT, P]
         din_fastas (str): Input folder with fasta file of gene family. 
         threads (int): Number of threads to use. 
         dio_tmp (str): Folder to store temporary files.
@@ -893,28 +843,26 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
     dio_tmp = f"{dio_tmp}/{superfam}"
     makedirs_smart(dio_tmp)
     
-    if strategy == "H":
+    if strategy == "H-nl":
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
-        pan = split_family_recursive_H(pan, sequences, threads, dio_tmp)
-    elif strategy == "T":
+        pan = split_family_recursive_H_nl(pan, sequences, threads, dio_tmp)
+    elif strategy == "T-nl":
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
-        pan = split_family_recursive_T(pan, sequences, threads, dio_tmp)
-    elif strategy == "H-F":
-        run_mafft(f"{din_fastas}/{superfam}.fasta", f"{dio_tmp}/seqs.aln",
-            threads)
-        aln = read_fasta(f"{dio_tmp}/seqs.aln")
-        genes = [seq.id for seq in aln]
-        n = len(aln)
-        im = identity_matrix(aln)
-        dm = distmat_from_idmat(im)
-        hclust = cluster.hierarchy.linkage(dm, method = "average")
-        hclust = cluster.hierarchy.to_tree(hclust)
-        pan = split_family_recursive_H_F(pan, hclust, genes)
-    elif strategy in ["LH-F", "HT-F", "LHT-F"]:
+        pan = split_family_recursive_T_nl(pan, sequences, threads, dio_tmp)
+    elif strategy in ["H", "FH", "T", "FT"]:
+        max_reps = 30
+        min_reps = max_reps // 2
+        ficlin = "F" in strategy
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
-        pan = split_family_recursive_LHT_F(pan, strategy, sequences, 
-            idmat = None, idmat_names = None, threads = threads, 
-            dio_tmp = dio_tmp)
+        genes = pan.index.tolist()
+        sequences.sort(key = lambda s: genes.index(s.id))
+        pan["rep"] = "c" 
+        if "H" in strategy:
+            pan = split_family_recursive_FH(pan, sequences, None, ficlin,
+                min_reps, max_reps, threads, dio_tmp)
+        else:
+            pan = split_family_recursive_FT(pan, sequences, None, ficlin,
+                min_reps, max_reps, threads, dio_tmp)
         pan = pan[["genome", "orthogroup"]] # remark: "gene" is the index
     elif strategy == "P":
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
