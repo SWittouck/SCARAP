@@ -57,6 +57,99 @@ def update_prefdb(QDB, TDB, PDB):
                 values = query_line.strip().split("\t")
                 towrite = "\t".join([values[0], "0", str(index_size)])
                 hout_PDB.write(f"{towrite}\n")
+                
+def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
+    """Updates the identity values in a seedmatrix. 
+    
+    A seed matrix is a matrix where the rows represent genes, while the
+    columns represent a subset of these genes ("seeds"). The cells contain
+    sequence identity values of the genes to the seeds. This function will
+    identify seeds that are no longer present in the set of genes (= seeds
+    that don't have an identity value of one to at least one of the genes),
+    and replace them with new seeds.
+    
+    Args:
+        seedmatrix (np.array): An array of identity values of genes to seeds. 
+        sequences (list): A list of SeqRecords in the same order as the rows 
+            of the seedmatrix. 
+        dout_tmp (str): The path to a folder to store temporary files. 
+        threads (int): The number of threads to use. 
+        
+    Returns:
+        An updated seedmatrix. 
+    """
+  
+    # construct target and prefilter dbs
+    makedirs_smart(f"{dout_tmp}")
+    for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
+        makedirs_smart(f"{dout_tmp}/{dir}")
+    write_fasta(sequences, f"{dout_tmp}/seqs.fasta")
+    run_mmseqs(["createdb", f"{dout_tmp}/seqs.fasta", 
+        f"{dout_tmp}/sequenceDB/db"], f"{dout_tmp}/logs/createdb.log", 
+        threads = threads)
+    create_prefdb("../sequenceDB/db", f"{dout_tmp}/prefDB/db")
+    
+    # identify seeds (= columns) to replace
+    replace = np.apply_along_axis(lambda l: all(l != 1), 0, seedmatrix)
+    seedstoreplace = [i for i, r in enumerate(replace) if r]
+    logging.info(f"adding {len(seedstoreplace)} seeds")
+    
+    # update seed matrix with identity values 
+    genes = [seq.id for seq in sequences]
+    lengths = [len(seq) for seq in sequences]
+    for c in seedstoreplace:
+      
+        for dir in ["seedDB", "alignmentDB"]:
+            makedirs_smart(f"{dout_tmp}/{dir}")
+        
+        # select longest next seed
+        max_ids = np.amax(seedmatrix, 1) # max of each row = max along columns
+        min_max_ids = np.amin(max_ids)
+        cand_length = 0
+        for i, s in enumerate(sequences):
+            if max_ids[i] == min_max_ids and lengths[i] > cand_length:
+                cand_length = lengths[i]
+                seed = s
+                seed_ix = i
+        
+        # create seed db
+        write_fasta([seed], f"{dout_tmp}/seed.fasta")
+        run_mmseqs(["createdb", f"{dout_tmp}/seed.fasta", 
+            f"{dout_tmp}/seedDB/db"], f"{dout_tmp}/logs/createseeddb.log", 
+            threads = threads)
+            
+        # run mmseqs align
+        update_prefdb(f"{dout_tmp}/seedDB/db", f"{dout_tmp}/sequenceDB/db", 
+            f"{dout_tmp}/prefDB/db")
+        run_mmseqs(["align", f"{dout_tmp}/seedDB/db",
+            f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/prefDB/db", 
+            f"{dout_tmp}/alignmentDB/db", "--alignment-mode", "1"], 
+            f"{dout_tmp}/logs/search.log", threads = threads)
+        run_mmseqs(["createtsv", f"{dout_tmp}/seedDB/db", 
+            f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/alignmentDB/db", 
+            f"{dout_tmp}/hits.tsv"], f"{dout_tmp}/logs/createtsv.log")
+        hits_new = pd.read_csv(f"{dout_tmp}/hits.tsv", sep = "\t", 
+            usecols = [1, 3], names = ["gene", "identity"])
+        
+        # put the identity values in the seed matrix
+        for index, row in hits_new.iterrows():
+            gene_ix = genes.index(row["gene"])
+            seedmatrix[gene_ix, c] = row["identity"]
+            
+        # set identity of seed to itself to one
+        # (mmseqs align estimates the identity values from the scores)
+        seedmatrix[seed_ix, c] = 1
+    
+    # give warning if some sequences don't align to their cluster seed
+    ids_to_seed = np.amax(seedmatrix, 1)
+    if np.any(ids_to_seed == 0):
+        logging.warning("ficlin: one or more sequences do not align to any "
+            "seed")
+    
+    # remove temporary output folder
+    shutil.rmtree(dout_tmp)
+        
+    return(seedmatrix)
 
 def run_ficlin(sequences, n_clusters, dout_tmp, threads):
     """Partitions sequences in a fixed number of clusters. 
@@ -76,81 +169,15 @@ def run_ficlin(sequences, n_clusters, dout_tmp, threads):
     Returns:
         A list containing the cluster number for each sequence in sequences.
     """
-  
-    # construct target and prefilter dbs
-    makedirs_smart(f"{dout_tmp}")
-    for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
-        makedirs_smart(f"{dout_tmp}/{dir}")
-    write_fasta(sequences, f"{dout_tmp}/seqs.fasta")
-    run_mmseqs(["createdb", f"{dout_tmp}/seqs.fasta", 
-        f"{dout_tmp}/sequenceDB/db"], f"{dout_tmp}/logs/createdb.log", 
-        threads = threads)
-    create_prefdb("../sequenceDB/db", f"{dout_tmp}/prefDB/db")
     
-    # initialize a hit matrix 
-    hits = np.zeros([len(sequences), n_clusters])
+    # initialize a seed matrix 
+    seedmatrix = np.zeros([len(sequences), n_clusters])
     
-    # fill hit matrix with identity values 
-    genes = [seq.id for seq in sequences]
-    # lengths = [len(seq) for seq in sequences]
-    for c in range(n_clusters):
-      
-        for dir in ["seedDB", "alignmentDB"]:
-            makedirs_smart(f"{dout_tmp}/{dir}")
-            
-        max_ids = np.amax(hits, 1) # max of each row = max along columns
-        # max_ids = max_ids / np.array(lengths)
-        
-        # # select random seed
-        # seed_ix = np.argmin(max_ids) # index of first occurrence of a minimum
-        # seed = sequences[seed_ix]
-        
-        # select largest seed
-        min_max_ids = np.amin(max_ids)
-        cands = [s for i, s in enumerate(sequences) if 
-            max_ids[i] == min_max_ids]
-        seed = select_representative(cands, longest = True)
-        seed_ix = genes.index(seed.id)
-        
-        # create seed db
-        write_fasta([seed], f"{dout_tmp}/seed.fasta")
-        run_mmseqs(["createdb", f"{dout_tmp}/seed.fasta", 
-            f"{dout_tmp}/seedDB/db"], f"{dout_tmp}/logs/createseeddb.log", 
-            threads = threads)
-            
-        # run mmseqs align
-        update_prefdb(f"{dout_tmp}/seedDB/db", f"{dout_tmp}/sequenceDB/db", 
-            f"{dout_tmp}/prefDB/db")
-        run_mmseqs(["align", f"{dout_tmp}/seedDB/db",
-            f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/prefDB/db", 
-            f"{dout_tmp}/alignmentDB/db"], 
-            f"{dout_tmp}/logs/search.log", threads = threads)
-        run_mmseqs(["createtsv", f"{dout_tmp}/seedDB/db", 
-            f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/alignmentDB/db", 
-            f"{dout_tmp}/hits.tsv"], f"{dout_tmp}/logs/createtsv.log")
-        hits_new = pd.read_csv(f"{dout_tmp}/hits.tsv", sep = "\t", 
-            usecols = [1, 3], names = ["gene", "identity"])
-        
-        for index, row in hits_new.iterrows():
-            gene_ix = genes.index(row["gene"])
-            if hits[gene_ix, c] != 0:
-                logging.info("ficlin: non-zero identity value replaced!")
-            hits[gene_ix, c] = row["identity"]
-        # set identity of seed to itself to one 
-        # (mmseqs doesn't always find the self-match due to various reasons)
-        # hits[seed_ix, c] = 1
+    # update the seedmatrix
+    seedmatrix = update_seedmatrix(seedmatrix, sequences, dout_tmp, threads)
     
     # determine the cluster of each gene
-    clusters = np.argmax(hits, 1)
-    
-    # give warning if some sequences don't align to their cluster seed
-    ids_to_seed = np.amax(hits, 1)
-    if np.any(ids_to_seed == 0):
-        logging.warning("ficlin: one or more sequences do not align to any "
-            "seed")
-    
-    # remove temporary output folder
-    shutil.rmtree(dout_tmp)
+    clusters = np.argmax(seedmatrix, 1)
     
     return(clusters)
     
@@ -442,7 +469,7 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     return([pan1, pan2])
     
 def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps, 
-    threads, dio_tmp):
+    seedmatrix, threads, dio_tmp):
     """Splits a family in two subfamilies.
     
     See split_family_recursive_FH.
@@ -458,9 +485,10 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     else:
         n_reps = len(pan["rep"].unique())
         if n_reps < min_reps:
-            clusters = run_ficlin(sequences, max_reps, f"{dio_tmp}/ficlin", 
-                threads)
-            pan["rep"] = select_reps(pan.index.tolist(), clusters, sequences)
+            seedmatrix = update_seedmatrix(seedmatrix, sequences, 
+                f"{dio_tmp}/ficlin", threads)
+            linclusters = np.argmax(seedmatrix, 1)
+            pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_hclust = True
             
     # update hclust if requested, otherwise use parent hclust
@@ -488,16 +516,23 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     pan2 = pan[pan["rep"].isin(reps2)].copy()
     sequences1 = [s for s in sequences if s.id in pan1.index]
     sequences2 = [s for s in sequences if s.id in pan2.index]
-    
+    if ficlin:
+        seedmatrix1 = seedmatrix[pan["rep"].isin(reps1).tolist(), :]
+        seedmatrix2 = seedmatrix[pan["rep"].isin(reps2).tolist(), :]
+    else: 
+        seedmatrix1 = None
+        seedmatrix2 = None
+        
     # give the subfamilies names 
     family = pan.orthogroup.tolist()[0]    
     pan1.loc[:, "orthogroup"] = family + "_1"
     pan2.loc[:, "orthogroup"] = family + "_2"
     
-    return([pan1, pan2, sequences1, sequences2, hclust1, hclust2])
+    return([pan1, pan2, sequences1, sequences2, hclust1, hclust2, seedmatrix1, 
+        seedmatrix2])
     
 def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps, 
-    threads, dio_tmp):
+    seedmatrix, threads, dio_tmp):
     """Splits a family in two subfamilies.
     
     !! not finished and not tested
@@ -515,9 +550,10 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
     else:
         n_reps = len(pan["rep"].unique())
         if n_reps < min_reps:
-            clusters = run_ficlin(sequences, max_reps, f"{dio_tmp}/ficlin", 
-                threads)
-            pan["rep"] = select_reps(pan.index.tolist(), clusters, sequences)
+            seedmatrix = update_seedmatrix(seedmatrix, sequences, 
+                f"{dio_tmp}/ficlin", threads)
+            linclusters = np.argmax(seedmatrix, 1)
+            pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_tree = True
             
     # update tree if requested, otherwise use parent tree
@@ -533,7 +569,7 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     
     # split pan based on midpoint root
-    # TO ADAPT!! we also need: tree1 and tree2
+    # TO ADAPT!! we also need: tree1, tree2, seedmatrix1 and seedmatrix2
     midoutgr = tree.get_midpoint_outgroup()
     pan1, pan2 = split_pan(pan, tree, midoutgr)
     sequences1 = [s for s in sequences if s.id in pan1.index]
@@ -548,7 +584,8 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
     pan1.loc[:, "orthogroup"] = family + "_1"
     pan2.loc[:, "orthogroup"] = family + "_2"
     
-    return([pan1, pan2, sequences1, sequences2, tree1, tree2])
+    return([pan1, pan2, sequences1, sequences2, tree1, tree2, seedmatrix1, 
+        seedmatrix2])
 
 def split_family_P(pan, sequences, threads, dio_tmp):
     """Splits a family in two subfamilies.
@@ -702,7 +739,7 @@ def split_family_recursive_T_nl(pan, sequences, threads, dio_tmp):
     return(pan)
 
 def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps, 
-    max_reps, threads, dio_tmp):
+    max_reps, seedmatrix, threads, dio_tmp):
     """Splits up a gene family using the H or FH strategy. 
     
     See [https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.\
@@ -731,22 +768,23 @@ def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps,
         # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
     
-    pan1, pan2, sequences1, sequences2, hclust1, hclust2 = split_family_FH(pan,
-        sequences, hclust, ficlin, min_reps, max_reps, threads, dio_tmp)
+    pan1, pan2, sequences1, sequences2, hclust1, hclust2, seedmatrix1, \
+        seedmatrix2 = split_family_FH(pan, sequences, hclust, ficlin, min_reps,
+        max_reps, seedmatrix, threads, dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
 
         pan1 = split_family_recursive_FH(pan1, sequences1, hclust1, ficlin, 
-            min_reps, max_reps, threads, dio_tmp)
+            min_reps, max_reps, seedmatrix1, threads, dio_tmp)
         pan2 = split_family_recursive_FH(pan2, sequences2, hclust2, ficlin, 
-            min_reps, max_reps, threads, dio_tmp)
+            min_reps, max_reps, seedmatrix2, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
 
 def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps, 
-    max_reps, threads, dio_tmp):
+    max_reps, seedmatrix, threads, dio_tmp):
     """Splits up a gene family using the T or FT strategy. 
     
     Args:
@@ -771,16 +809,17 @@ def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps,
         # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
     
-    pan1, pan2, sequences1, sequences2, tree1, tree2 = split_family_FT(pan,
-        sequences, tree, ficlin, min_reps, max_reps, threads, dio_tmp)
+    pan1, pan2, sequences1, sequences2, tree1, tree2, seedmatrix1, \
+        seedmatrix2 = split_family_FT(pan, sequences, tree, ficlin, min_reps, 
+        max_reps, seedmatrix, threads, dio_tmp)
     split = assess_split(pan1, pan2, family)
     
     if split:
 
         pan1 = split_family_recursive_FT(pan1, sequences1, tree1, ficlin, 
-            min_reps, max_reps, threads, dio_tmp)
+            min_reps, max_reps, seedmatrix1, threads, dio_tmp)
         pan2 = split_family_recursive_FT(pan2, sequences2, tree2, ficlin, 
-            min_reps, max_reps, threads, dio_tmp)
+            min_reps, max_reps, seedmatrix2, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
@@ -850,19 +889,23 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         pan = split_family_recursive_T_nl(pan, sequences, threads, dio_tmp)
     elif strategy in ["H", "FH", "T", "FT"]:
-        max_reps = 30
-        min_reps = max_reps // 2
+        max_reps = 50
+        min_reps = 40
         ficlin = "F" in strategy
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         genes = pan.index.tolist()
         sequences.sort(key = lambda s: genes.index(s.id))
         pan["rep"] = "c" 
+        if "F" in strategy:
+            seedmatrix = np.zeros([len(sequences), max_reps])
+        else:
+            seedmatrix = None
         if "H" in strategy:
             pan = split_family_recursive_FH(pan, sequences, None, ficlin,
-                min_reps, max_reps, threads, dio_tmp)
+                min_reps, max_reps, seedmatrix, threads, dio_tmp)
         else:
             pan = split_family_recursive_FT(pan, sequences, None, ficlin,
-                min_reps, max_reps, threads, dio_tmp)
+                min_reps, max_reps, seedmatrix, threads, dio_tmp)
         pan = pan[["genome", "orthogroup"]] # remark: "gene" is the index
     elif strategy == "P":
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
@@ -923,7 +966,7 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/logs/clust.log",
         skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
 
-    # create the tsv files with the preclusters and clusters
+    # create the pangenome file 
     logging.info("compiling pangenome file with superfamilies")
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
         f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv"], 
@@ -940,6 +983,14 @@ def infer_superfamilies(faafins, dout, threads):
     genes_genomes = extract_genes(faafins)
     genes = pd.merge(genes_genomes, genes_ogs, on = "gene")
     genes = genes.drop(["precluster"], axis = 1)
+    
+    # rename the superfamilies 
+    famnames_old = genes["orthogroup"].unique()
+    famnames_new = [f"F{c}" for c in padded_counts(len(famnames_old))]
+    namedict = dict(zip(famnames_old, famnames_new))
+    genes["orthogroup"] = [namedict[f] for f in genes["orthogroup"]]
+    
+    # write pangenome file
     write_tsv(genes, f"{dout}/pangenome.tsv")
 
 def infer_pangenome(faafins, splitstrategy, dout, threads):
@@ -982,4 +1033,14 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
             [tpp] * n, [f"{dout}/tmp"] * n)
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
+        
+    # rename the gene families
+    nametable = pd.DataFrame({"old": pangenome["orthogroup"].unique()})
+    nametable["sf"] = [f.split("_")[0] for f in nametable["old"]]
+    nametable["new"] = nametable.groupby("sf")["sf"].transform(lambda sfs: \
+        [f"{sfs.tolist()[0]}_{c}" for c in padded_counts(len(sfs))])
+    namedict = dict(zip(nametable["old"], nametable["new"]))
+    pangenome["orthogroup"] = [namedict[f] for f in pangenome["orthogroup"]]
+    
+    # write pangenome file
     write_tsv(pangenome, f"{dout}/pangenome.tsv")

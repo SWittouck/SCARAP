@@ -2,6 +2,11 @@ import gzip
 import os
 import pandas as pd
 import shutil
+        
+def padded_counts(n):
+    d = len(str(n))
+    counts = [f"{str(i + 1).zfill(d)}" for i in range(n)]
+    return(counts)
 
 def makedirs_smart(dout):
     if os.path.exists(dout):
