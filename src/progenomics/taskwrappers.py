@@ -13,13 +13,17 @@ def run_pan_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_infile(args.faapaths)
-    if args.method in ["of_blast", "of_diamond"]:
+    if args.method in ["O-B", "O-D"]:
         check_fastas(args.faapaths) # mmseqs can handle zipped fastas
     if not args.species is None:
         check_infile(args.species)
 
     logging.info("checking dependencies")
-    check_tool("orthofinder")
+    if args.method in ["O-B", "O-D"]:
+        check_tool("orthofinder")
+    else:
+        check_tool("mmseqs", ["-h"])
+        check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
 
     run_pan(args)
 

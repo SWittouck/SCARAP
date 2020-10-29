@@ -45,7 +45,8 @@ def run_pan_nonhier(args):
         
     else:
       
-        logging.info(f"constructing pangenome with {args.method} strategy")
+        logging.info(f"pangenome will be constructed with the {args.method} "
+            "strategy")
         infer_pangenome(faafins, args.method, args.outfolder, args.threads)
 
 def run_pan_hier(args):
@@ -71,14 +72,14 @@ def run_pan_hier(args):
     reprpaths = []
     speciespanfios = []
     for species, genomes in speciesdict.items():
-        logging.info(f"inferring pangenome of {species}")
+        logging.info(f"started inferring pangenome of {species}")
         faapaths = [genomedict[genome] for genome in genomes]
         dout = os.path.join(speciespansdio, species)
         os.makedirs(dout, exist_ok = True)
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths, faapathsfio)
         run_pan_nonhier(Namespace(faapaths = faapathsfio, outfolder = dout,
-            threads = args.threads, method = "FH"))
+            threads = args.threads, method = args.method))
         speciespanfio = os.path.join(dout, "pangenome.tsv")
         speciespanfios.append(speciespanfio)
         reprfio = os.path.join(dout, species + ".faa")
@@ -94,7 +95,7 @@ def run_pan_hier(args):
     os.makedirs(metapandio, exist_ok = True)
     run_pan_nonhier(Namespace(faapaths = reprpathsfio,
         outfolder = metapandio, threads = args.threads,
-        method = "FH"))
+        method = args.method))
 
     logging.info("started inflating metapangenome with species pangenomes")
     speciespans = [read_genes(panfin) for panfin in speciespanfios]

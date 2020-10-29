@@ -4,7 +4,7 @@
 # interface.
 
 __author__ = "Stijn Wittouck"
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 import argparse
 import logging
@@ -67,8 +67,8 @@ def parse_arguments():
     parser_pan_parent.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_pan_parent.add_argument("-d", "--method", default = "FH",
-        choices = ["H", "FH", "T", "FT", "H-nl", "T-nl", "P", "O-B", "O-D"],
-        help = "pangenome inference method [default: LH]")
+        choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D"],
+        help = "pangenome inference method [default: FH]")
     parser_pan_parent.add_argument("outfolder",
         help = "output folder for pangenome file")
     parser_pan_parent.add_argument("-s", "--species",

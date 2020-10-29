@@ -92,7 +92,7 @@ def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
     # identify seeds (= columns) to replace
     replace = np.apply_along_axis(lambda l: all(l != 1), 0, seedmatrix)
     seedstoreplace = [i for i, r in enumerate(replace) if r]
-    logging.info(f"adding {len(seedstoreplace)} seeds")
+    # logging.info(f"adding {len(seedstoreplace)} seeds")
     
     # update seed matrix with identity values 
     genes = [seq.id for seq in sequences]
@@ -495,7 +495,7 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     if update_hclust:
         repseqs = [s for s in sequences if s.id in pan["rep"].unique()]
         reps = [s.id for s in repseqs]
-        logging.info(f"aligning {len(reps)} sequences")
+        # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
         run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
             threads)
@@ -915,6 +915,8 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
             
     pan = pan.reset_index()
     shutil.rmtree(dio_tmp)
+    
+    print("|", end = "", flush = True)
     return(pan)
 
 def infer_superfamilies(faafins, dout, threads):
@@ -942,23 +944,23 @@ def infer_superfamilies(faafins, dout, threads):
     run_mmseqs(["createdb"] + faafins + [f"{dout}/sequenceDB/db"], 
         f"{dout}/logs/createdb.log")
     
-    # create preclusters with cluster (could also be linclust)
+    # create preclusters with mmseqs cluster module (includes mmseqs linclust)
     logging.info("creating preclusters")
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
         f"{dout}/tmp", "--max-seqs", "1000000", "-c", "0.5", "--cov-mode", "0",
-        "-e", "inf", "--min-seq-id", "0.1", "--cluster-mode", "0"], 
+        "-e", "inf", "--min-seq-id", "0.2", "--cluster-mode", "0"], 
         f"{dout}/logs/cluster.log", 
         skip_if_exists = f"{dout}/preclusterDB/db.index", threads = threads)
 
     # cluster the preclusters into the final clusters
-    logging.info("clustering the preclusters")
+    logging.info("clustering the preclusters using profiles")
     run_mmseqs(["result2profile", f"{dout}/sequenceDB/db",
         f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
         f"{dout}/profileDB/db"], f"{dout}/logs/result2profile.log",
         skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
     run_mmseqs(["search", f"{dout}/profileDB/db",
         f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
-        f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"], 
+        f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"],
         f"{dout}/logs/search.log",
         skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
     run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
@@ -980,6 +982,7 @@ def infer_superfamilies(faafins, dout, threads):
         names = ["cluster", "precluster"])
     genes_ogs = pd.merge(preclustertable, clustertable, on = "precluster")
     genes_ogs = genes_ogs.rename(columns = {"cluster": "orthogroup"})
+    # genes_ogs = preclustertable.rename(columns = {"precluster": "orthogroup"}) # tmp!!
     genes_genomes = extract_genes(faafins)
     genes = pd.merge(genes_genomes, genes_ogs, on = "gene")
     genes = genes.drop(["precluster"], axis = 1)
@@ -1026,15 +1029,16 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     pangenome_splitable = [pan for name, pan in pangenome if name in splitable]
     pangenome_splitable.sort(key = lambda pan: len(pan.index), reverse = True)
     n = len(pangenome_splitable)
-    logging.info(f"splitting {n} splitable superfamilies")
+    logging.info(f"found {n} splitable superfamilies")
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
         pangenome_splitable = executor.map(split_superfamily, 
             pangenome_splitable, [splitstrategy] * n, [dio_fastas] * n, 
             [tpp] * n, [f"{dout}/tmp"] * n)
+    print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
         
-    # rename the gene families
+    logging.info("assigning names to the gene families")
     nametable = pd.DataFrame({"old": pangenome["orthogroup"].unique()})
     nametable["sf"] = [f.split("_")[0] for f in nametable["old"]]
     nametable["new"] = nametable.groupby("sf")["sf"].transform(lambda sfs: \
@@ -1042,5 +1046,5 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     namedict = dict(zip(nametable["old"], nametable["new"]))
     pangenome["orthogroup"] = [namedict[f] for f in pangenome["orthogroup"]]
     
-    # write pangenome file
+    logging.info("writing pangenome file")
     write_tsv(pangenome, f"{dout}/pangenome.tsv")
