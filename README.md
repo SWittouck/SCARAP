@@ -1,22 +1,28 @@
 # Progenomics: toolkit for prokaryotic comparative genomics
 
-Progenomics is a toolkit-under-construction for comparative genomics of prokaryotes. It should be able to handle large genome datasets of small to medium sequence divergence (i.e., genomes from the same species, genus, family and possibly order). Its most useful feature at the moment is probably that it is able to quickly infer the core genome of a large set of genomes without having to infer the pangenome as an intermediate step.
-
-Progenomics depends on [OrthoFinder](https://github.com/davidemms/OrthoFinder) for some of its functionalities.
+Progenomics is a toolkit for fast and scalable comparative genomics. It has been designed for prokaryotes but should work for eukaryotic genomes as well. Progenomics can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets up until the order level. Its most useful features are fast pangenome inference, sensitive search of query sequences in a pangenome, rapid core genome inference using a heuristic strategy and the construction of concatenated core gene alignments ("supermatrices"). 
 
 ## Dependencies
 
-Dependencies with suggested installation instructions:
+Essential dependencies: 
 
 * [Python3](https://www.python.org/) version >= 3.6.7
 * Python libraries:
-    * [Biopython](https://biopython.org/) version >= 1.67 (`pip3 install biopython`)
-    * [pandas](https://pandas.pydata.org/) version >= 0.24.1 (`pip3 install pandas`)
-* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0 (`conda install -c bioconda blast`)
-* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137 (`conda install -c bioconda mcl`)
-* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2 (`conda install -c bioconda orthofinder`)
-* [mafft](https://mafft.cbrc.jp/alignment/software/) version >= 7.407 (`conda install -c bioconda mafft`)
-* [HMMER](http://hmmer.org/) version >= 3.1b2 (`conda install -c bioconda hmmer`)
+    * [biopython](https://biopython.org/) version >= 1.67
+    * [ete3](http://etetoolkit.org/) version >= 3.1.1
+    * [scipy](https://www.scipy.org/) version >= 1.4.1
+* [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
+* [MMseqs2](https://github.com/soedinglab/MMseqs2) version >= d36dea2
+
+Dependencies for the search module and core pipeline:
+
+* [HMMER](http://hmmer.org/) version >= 3.1b2
+
+Dependencies when using [OrthoFinder](https://github.com/davidemms/OrthoFinder) for pangenome inference:
+
+* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0
+* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137
+* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2
 
 ## Usage
 
@@ -35,9 +41,54 @@ A full core and pangenome pipeline are also implemented:
 * `pan-pipeline`: infer a pangenome, build a profile HMM database and train score cutoffs from a set of faa files
 * `core-pipeline`: infer a core genome, build a profile HMM database and train score cutoffs from a set of faa files
 
-### Core genome pipeline
+### Infering a pangenome
 
-Let's say we want to infer the core genome for a set of prokaryotic genomes and we have one faa file (amino acid sequences of predicted genes) per genome in the folder `faas`.
+If you want to infer the pangenome of a set of genomes, you only need their faa files (fasta files with protein sequences) as input. If the faa files are stored in a folder `faas`, you can infer the pangenome using 16 threads by running: 
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan faapaths.txt pan -t 16
+    
+The pangenome will be stored in `pan/pangenome.tsv`. 
+
+The above example will use the builtin "FH" strategy to infer the pangenome; it is fast and scales more or less linearly with the number of input genomes. If you prefer to use OrthoFinder for pangenome inference, you can run:
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan faapaths.txt pan -d O-B -t 16
+    
+This will be a bit slower though.
+
+### Searching a pangenome
+
+Disclaimer: many aspects of this pipeline can still change, especially the way that hmmer score cutoffs are trained.
+
+**Quick version**
+
+If you want to infer a pangenome of your genomes as well as build a pangenome database that you can later query with one or more genes of interest, you can run:
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan-pipeline faapaths.txt pan -t 16
+
+If you then want to identify whether some genes of interest (let's say in a file called `querygenes.fasta`) are present in the pangenome database, you can run:
+
+    echo querygenes.fasta > querypath.txt
+    progenomics search querypath.txt pangenome/db hits
+
+This will produce a `hits` output folder with the file `hits.tsv`.
+
+**Detailed version**
+
+The pangenome pipeline can also be performed by running individual tasks:
+
+    ls faas/*.faa > faapaths.txt
+    progenomics pan faapaths.txt pan
+    progenomics build faapaths.txt pan/pangenome.tsv db
+    progenomics search faapaths.txt db pan2 -s pan -p pan/pangenome.tsv
+
+The final `search` step is required because it will train a hmmer score cutoff for each profile HMM in the pangenome database and add these cutoffs to the database. In addition, it produces an orthogroup assignment for each protein in the set of input genomes (`pan2/hits.tsv`). Importantly, these assignments are not always the same as the orthogroup assignments listed in `pan/pangenome.tsv` because they are produced by a hmmer search with orthogroup-specific cutoffs, while the original orthogroup assignments have been produced by the pangenome inference process. A comparison between these two strategies of orthogroup assignment could be interesting.
+
+### Inferring a core genome only
+
+Let's say we want to infer the core genome for a set of genomes and we have one faa file (amino acid sequences of predicted genes) per genome in the folder `faas`. This can be done using the core pipeline of progenomics, which can be a lot faster than full pangenome inference. 
 
 **Quick version**
 
@@ -84,38 +135,9 @@ If we want more fine-grained control, we could achieve the same result by runnin
 
 The output folder `core` will now contain the file coregenome.tsv.
 
-### Pangenome pipeline
-
-Disclaimer: this pipeline is still in active development. Parts of it can still change drastically, especially the way that hmmer score cutoffs are trained.
-
-**Quick version**
-
-If you want to infer a pangenome of your genomes as well as build a pangenome database that you can later query with one or more genes of interest, you can run:
-
-    ls faas/*.faa > faapaths.txt
-    progenomics pan-pipeline faapaths.txt pan -t 16
-
-If you then want to identify whether some genes of interest (let's say in a file called `querygenes.fasta`) are present in the pangenome database, you can run:
-
-    echo querygenes.fasta > querypath.txt
-    progenomics search querypath.txt pangenome/db hits
-
-This will produce a `hits` output folder with the file `hits.tsv`.
-
-**Detailed version**
-
-The pangenome pipeline can also be performed by running individual tasks:
-
-    ls faas/*.faa > faapaths.txt
-    progenomics pan faapaths.txt pan
-    progenomics build faapaths.txt pan/pangenome.tsv db
-    progenomics search faapaths.txt db pan2 -s pan -p pan/pangenome.tsv
-
-The final `search` step is required because it will train a hmmer score cutoff for each profile HMM in the pangenome database and add these cutoffs to the database. In addition, it produces an orthogroup assignment for each protein in the set of input genomes (`pan2/hits.tsv`). Importantly, these assignments are not always the same as the orthogroup assignments listed in `pan/pangenome.tsv` because they are produced by a hmmer search with orthogroup-specific cutoffs, while the original orthogroup assignments have been produced by the pangenome inference process. A comparison between these two strategies of orthogroup assignment could be interesting.
-
 ## License
 
-Progenomics is free software, licensed under [GPLv3](https://github.com/sanger-pathogens/Roary/blob/master/GPL-LICENSE).
+Progenomics is free software, licensed under [GPLv3](https://github.com/SWittouck/progenomics/blob/master/LICENSE).
 
 ## Feedback
 
@@ -125,9 +147,4 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 When you use progenomics for your publication, please cite:
 
-[Wittouck, Stijn, Sander Wuyts, Conor J Meehan, Vera van Noort, and Sarah Lebeer. 2019. “A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex.” Edited by Sean M
-Gibbons. MSystems 4 (5): e00264-19. https://doi.org/10.1128/mSystems.00264-19.](https://doi.org/10.1128/mSystems.00264-19)
-
-Please also cite OrthoFinder:
-
-[Emms, D.M., Kelly, S. OrthoFinder: phylogenetic orthology inference for comparative genomics. Genome Biol 20, 238 (2019)](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1832-y)
+[Wittouck, S., Wuyts, S., Meehan, C. J., van Noort, V., & Lebeer, S. (2019). A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex. mSystems, 4(5), e00264–19. https://doi.org/10.1128/mSystems.00264-19.](https://doi.org/10.1128/mSystems.00264-19)
