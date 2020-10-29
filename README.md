@@ -41,7 +41,7 @@ A full core and pangenome pipeline are also implemented:
 * `pan-pipeline`: infer a pangenome, build a profile HMM database and train score cutoffs from a set of faa files
 * `core-pipeline`: infer a core genome, build a profile HMM database and train score cutoffs from a set of faa files
 
-### Infering a pangenome
+### Inferring a pangenome
 
 If you want to infer the pangenome of a set of genomes, you only need their faa files (fasta files with protein sequences) as input. If the faa files are stored in a folder `faas`, you can infer the pangenome using 16 threads by running: 
 
@@ -147,4 +147,4 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 When you use progenomics for your publication, please cite:
 
-[Wittouck, S., Wuyts, S., Meehan, C. J., van Noort, V., & Lebeer, S. (2019). A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex. mSystems, 4(5), e00264–19. https://doi.org/10.1128/mSystems.00264-19.](https://doi.org/10.1128/mSystems.00264-19)
+[Wittouck, S., Wuyts, S., Meehan, C. J., van Noort, V., & Lebeer, S. (2019). A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex. mSystems, 4(5), e00264–19.](https://doi.org/10.1128/mSystems.00264-19)
