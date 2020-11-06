@@ -21,10 +21,11 @@ Remark: all scripts import utils
 * pan.py
     * code for the various builtin pangenome inference methods
     * imports readerswriters, computers, callers
-* readerswriters.py:
-    * functions that perform simple reading/writing operations
 * computers.py:
     * functions that perform more complex computations
+    * imports readerswriters, callers
+* readerswriters.py:
+    * functions that perform simple reading/writing operations
 * callers.py:
     * functions that call other software (e.g. hmmer tasks, mmseqs2 tasks, mafft)
 * utils.py:

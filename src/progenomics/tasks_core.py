@@ -1,5 +1,10 @@
 import logging
+import numpy as np
 import os
+import pandas as pd
+
+from concurrent.futures import ProcessPoolExecutor
+from statistics import median
 
 from argparse import Namespace
 from utils import *
@@ -281,3 +286,115 @@ def run_supermatrix(args):
 
         logging.info("concatenating nucleotide alignments")
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
+
+def run_clust(args):
+  
+    tpp = 1
+    tpp = min([tpp, args.threads])
+    
+    if "exact" in args and args.exact:
+        ali_mode = 3
+    else:
+        ali_mode = 1
+        
+    if args.identity > 1:
+        args.identity = args.identity / 100
+        logging.info(f"corrected identity value to {str(args.identity)}")
+
+    fout_clusters = os.path.join(args.outfolder, "clusters.tsv")
+    dio_seqs = os.path.join(args.outfolder, "tmp_seqs")
+    dio_alis = os.path.join(args.outfolder, "tmp_alis")
+
+    logging.info("creating output subfolders")
+    os.makedirs(dio_seqs, exist_ok = True)
+    os.makedirs(dio_alis, exist_ok = True)
+
+    if os.path.isfile(fout_clusters):
+
+        logging.info("existing cluster file detected - moving on")
+        return()
+
+    logging.info("reading core genome") 
+    core = read_genes(args.coregenome)
+    fams = core["orthogroup"].unique()
+    genomes = core["genome"].unique()
+    logging.info(f"detected {len(fams)} orthogroups")
+    
+    if args.max_clusters == 0:
+        args.max_clusters = len(genomes)
+        logging.info(f"set max_clusters to {args.max_clusters}")
+    
+    logging.info("removing same-genome copies of core genes")
+    core = core.drop_duplicates(["genome", "orthogroup"], keep = False)
+    
+    logging.info("gathering sequences of orthogroups")
+    fins_faas = read_lines(args.fastapaths)
+    gather_orthogroup_sequences(core, fins_faas, dio_seqs)
+    
+    logging.info("creating target alignment databases")
+    for fam in fams:
+        dio_fam = f"{dio_alis}/{fam}"
+        makedirs_smart(f"{dio_fam}")
+        for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
+            makedirs_smart(f"{dio_fam}/{dir}")
+        run_mmseqs(["createdb", f"{dio_seqs}/{fam}.fasta", 
+            f"{dio_fam}/sequenceDB/db"], f"{dio_fam}/logs/createdb.log", 
+            threads = args.threads)
+        create_prefdb("../sequenceDB/db", f"{dio_fam}/prefDB/db")
+        
+    logging.info("initializing empty identity matrix")
+    id_m = np.zeros([len(genomes), 0])
+    
+    logging.info("adding cluster seeds until max_clusters or identity "
+        "threshold is reached")
+    core = core.groupby("orthogroup")
+    core = [core_fam for fam, core_fam in core]
+    while True:
+      
+        print("|", end = "")
+      
+        # add zeros column to identity matrix
+        id_m = np.hstack((id_m, np.zeros([id_m.shape[0], 1])))
+      
+        # select seed
+        max_ids = np.amax(id_m, 1) # max of each row = max along columns
+        s = np.argmin(max_ids)
+        min_max_ids = max_ids[s]
+        seed_genome = genomes[s]
+        
+        # if clusters small enough: break the loop
+        if min_max_ids > args.identity:
+            print("")
+            logging.info("identity threshold reached")
+            id_m = np.delete(id_m, -1, 1)
+            break
+        
+        # perform alignments for each core gene 
+        max_workers = args.threads // tpp
+        n = len(core)
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:
+            hits = executor.map(align_seed_genome, [seed_genome] * n, core, 
+                [dio_seqs] * n, [dio_alis] * n, [ali_mode] * n, [tpp] * n)
+        hits = pd.concat(hits)
+        
+        # calculate median identity per genome and add to identity matrix
+        ids = hits.groupby("genome").aggregate(lambda l: median(l))
+        for g, genome in enumerate(genomes):
+            id_m[g, -1] = ids.loc[genome, "identity"]
+            
+        # if enough clusters: break the loop
+        if np.size(id_m, 1) == args.max_clusters:
+            print("")
+            logging.info("max number of clusters reached")
+            break
+        
+    logging.info("assigning cluster numbers")
+    clusters = np.argmax(id_m, 1)
+    genomes_clusters = pd.DataFrame({"genome": genomes, "cluster": clusters})
+    
+    logging.info("writing clusters.tsv")
+    write_tsv(genomes_clusters, fout_clusters)
+        
+    logging.info("removing temporary folders")
+    shutil.rmtree(dio_seqs)
+    shutil.rmtree(dio_alis)

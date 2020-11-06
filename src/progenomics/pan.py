@@ -16,47 +16,6 @@ from computers import *
 from callers import *
 
 ## helpers - ficlin module (F)
-
-def create_prefdb(TDB, PDB):
-    """Initialize a fake prefilter database.
-    
-    Create a fake prefilter database to be used for searching all queries
-    against all targets.
-    
-    See https://github.com/soedinglab/MMseqs2/wiki#how-to-create-a-fake-prefiltering-for-all-vs-all-alignments
-    
-    Args:
-        TDB (str): The path to the target database, but relative to the prefilter 
-            database!!
-        PDB (str): The path to the prefilter database. 
-    """
-    os.symlink(f"{TDB}.index", PDB)
-    with open(f"{PDB}.dbtype", "w") as hout_PDB:
-        chars = [chr(7)] + [chr(0)] * 3
-        for char in chars:
-            hout_PDB.write(char)
-    
-def update_prefdb(QDB, TDB, PDB):
-    """Setup the queries for a fake prefilter database. 
-    
-    Set the queries of a fake prefilter database to be used for searching all
-    queries against all targets.
-    
-    See https://github.com/soedinglab/MMseqs2/wiki#how-to-create-a-fake-prefiltering-for-all-vs-all-alignments
-    
-    Args: 
-        QDB (str): The path to the query database.
-        TDB (str): The path to the target database.
-        PDB (str): The path to the prefilter database.
-    """
-    index_size = os.path.getsize(f"{TDB}.index")
-    open(f"{PDB}.index", "w").close()
-    with open(f"{QDB}.index", "r") as hin_QDB:
-        with open(f"{PDB}.index", "a") as hout_PDB:
-            for query_line in hin_QDB:
-                values = query_line.strip().split("\t")
-                towrite = "\t".join([values[0], "0", str(index_size)])
-                hout_PDB.write(f"{towrite}\n")
                 
 def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
     """Updates the identity values in a seedmatrix. 

@@ -115,6 +115,19 @@ def run_supermatrix_withchecks(args):
     
     run_supermatrix(args)
 
+def run_clust_withchecks(args):
+
+    logging.info("welcome to the clust task")
+
+    logging.info("checking arguments other than output folder")
+    check_infile(args.fastapaths)
+    check_infile(args.coregenome)
+
+    logging.info("checking dependencies")
+    check_tool("mmseqs", ["-h"])
+    
+    run_clust(args)
+
 def run_pan_pipeline_withchecks(args):
 
     logging.info("welcome to the pan pipeline")

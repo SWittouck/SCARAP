@@ -32,6 +32,7 @@ TASKS
     filter        --> filter the genomes/orthogroups in a pangenome
     supermatrix   --> construct a concatenated core orthogroup alignment from a
                       core genome
+    clust         --> cluster genomes in n clusters given their core genes
 PIPELINES
     pan-pipeline  --> infer a pangenome, build a profile HMM database and train
                       score cutoffs from a set of faa files
@@ -163,6 +164,27 @@ def parse_arguments():
             "a nucleotide supermatrix will be constructed in addition to the "
             "amino acid suprmatrix")
     parser_supermatrix.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
+
+    parser_clust = subparsers.add_parser('clust')
+    parser_clust.set_defaults(func = run_clust_withchecks)
+    parser_clust.add_argument("fastapaths",
+        help = "input file with paths to ffn/faa files of genomes")
+    parser_clust.add_argument("coregenome",
+        help = "input file with core genome")
+    parser_clust.add_argument("outfolder",
+        help = "output folder for clustering")
+    parser_clust.add_argument("-m", "--max_clusters", default = 0, type = int,
+        help = "maximum number of clusters; 0 means no maximum [default 0]")
+    parser_clust.add_argument("-i", "--identity", default = 1, 
+        type = float,
+        help = "maximum identity of sequences to the seeds of other clusters "
+            "[default 1]")
+    parser_clust.add_argument("-x", "--exact", action = "store_true",
+        help = "perform full alignments [default False]")
+    parser_clust.add_argument("-t", "--threads", default = 8, type = int,
+        help = "number of threads to use [default 8]")
+    parser_clust.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
 
     parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
