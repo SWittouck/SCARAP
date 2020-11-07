@@ -27,7 +27,7 @@ def run_mmseqs(arguments, logfout, skip_if_exists = "", threads = 1):
                 logging.info("existing output detected - moving on")
                 return()
     args = ["mmseqs"] + arguments
-    if not arguments[0] in ["createdb", "convertmsa"]:
+    if not arguments[0] in ["createdb", "convertmsa", "tsv2db"]:
         args = args + ["--threads", str(threads)]
     with open(logfout, "w") as loghout:
         result = subprocess.call(args, stdout = loghout, stderr = loghout)

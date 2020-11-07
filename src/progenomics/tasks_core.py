@@ -288,29 +288,26 @@ def run_supermatrix(args):
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
 
 def run_clust(args):
-  
-    tpp = 1
-    tpp = min([tpp, args.threads])
     
+    logging.info("processing parameters")
     if "exact" in args and args.exact:
         ali_mode = 3
     else:
         ali_mode = 1
-        
     if args.identity > 1:
         args.identity = args.identity / 100
         logging.info(f"corrected identity value to {str(args.identity)}")
-
-    fout_clusters = os.path.join(args.outfolder, "clusters.tsv")
-    dio_seqs = os.path.join(args.outfolder, "tmp_seqs")
-    dio_alis = os.path.join(args.outfolder, "tmp_alis")
+    elif args.identity > 100:
+        logging.error("identity should be between 0 and 1")
 
     logging.info("creating output subfolders")
+    dio_seqs = os.path.join(args.outfolder, "tmp_seqs")
+    dio_alis = os.path.join(args.outfolder, "tmp_alis")
     os.makedirs(dio_seqs, exist_ok = True)
     os.makedirs(dio_alis, exist_ok = True)
-
+    
+    fout_clusters = os.path.join(args.outfolder, "clusters.tsv")
     if os.path.isfile(fout_clusters):
-
         logging.info("existing cluster file detected - moving on")
         return()
 
@@ -331,29 +328,31 @@ def run_clust(args):
     fins_faas = read_lines(args.fastapaths)
     gather_orthogroup_sequences(core, fins_faas, dio_seqs)
     
-    logging.info("creating target alignment databases")
+    logging.info("creating database for alignments")
+    for dir in ["sequenceDB", "logs"]:
+        makedirs_smart(f"{dio_alis}/{dir}")
+    fio_seqs = f"{dio_alis}/seqs.fasta"
+    open(fio_seqs, "w").close()
     for fam in fams:
-        dio_fam = f"{dio_alis}/{fam}"
-        makedirs_smart(f"{dio_fam}")
-        for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
-            makedirs_smart(f"{dio_fam}/{dir}")
-        run_mmseqs(["createdb", f"{dio_seqs}/{fam}.fasta", 
-            f"{dio_fam}/sequenceDB/db"], f"{dio_fam}/logs/createdb.log", 
-            threads = args.threads)
-        create_prefdb("../sequenceDB/db", f"{dio_fam}/prefDB/db")
-        
+        with open(f"{dio_seqs}/{fam}.fasta", "r") as hin_fam:
+            with open(fio_seqs, "a+") as hout_seqs:
+                hout_seqs.write(hin_fam.read())
+    run_mmseqs(["createdb", fio_seqs, f"{dio_alis}/sequenceDB/db"], 
+        f"{dio_alis}/logs/createdb.log", threads = args.threads)
+    os.remove(fio_seqs)
+    
     logging.info("initializing empty identity matrix")
     id_m = np.zeros([len(genomes), 0])
     
     logging.info("adding cluster seeds until max_clusters or identity "
         "threshold is reached")
-    core = core.groupby("orthogroup")
-    core = [core_fam for fam, core_fam in core]
+    core_grouped = core.copy().groupby("orthogroup")
+    core_grouped = [core_fam for fam, core_fam in core_grouped]
     while True:
       
-        print("|", end = "")
+        print("|", end = "", flush = True)
       
-        # add zeros column to identity matrix
+        # add column of zeros to identity matrix
         id_m = np.hstack((id_m, np.zeros([id_m.shape[0], 1])))
       
         # select seed
@@ -369,13 +368,41 @@ def run_clust(args):
             id_m = np.delete(id_m, -1, 1)
             break
         
-        # perform alignments for each core gene 
-        max_workers = args.threads // tpp
-        n = len(core)
-        with ProcessPoolExecutor(max_workers = max_workers) as executor:
-            hits = executor.map(align_seed_genome, [seed_genome] * n, core, 
-                [dio_seqs] * n, [dio_alis] * n, [ali_mode] * n, [tpp] * n)
-        hits = pd.concat(hits)
+        # prepare prefilter database
+        for dir in ["prefDB", "alignmentDB"]:
+            makedirs_smart(f"{dio_alis}/{dir}")
+        pref = core_grouped.copy()
+        for p, fam in enumerate(pref):
+            if not seed_genome in fam.genome.tolist():
+                pref[p] = None
+                continue
+            fam["query"] = fam[fam.genome == seed_genome].iloc[0]["gene"]
+        pref = pd.concat(pref)
+        pref = pref.rename(columns = {"gene": "target"})
+        lookup = pd.read_csv(f"{dio_alis}/sequenceDB/db.lookup", sep = "\t", 
+            usecols = [0, 1], names = ["id", "sequence"])
+        lookup = dict(zip(lookup["sequence"].tolist(), lookup["id"].tolist()))
+        pref["query_id"] = [lookup[q] for q in pref["query"].tolist()]
+        pref["target_id"] = [lookup[t] for t in pref["target"].tolist()]
+        pref = pref[["query_id", "target_id"]]
+        write_tsv(pref, f"{dio_alis}/pref.tsv")
+        run_mmseqs(["tsv2db", f"{dio_alis}/pref.tsv", f"{dio_alis}/prefDB/db", 
+            "--output-dbtype", "7"], f"{dio_alis}/logs/tsv2db.log")
+        
+        # perform alignments 
+        run_mmseqs(["align", f"{dio_alis}/sequenceDB/db",
+            f"{dio_alis}/sequenceDB/db", f"{dio_alis}/prefDB/db", 
+            f"{dio_alis}/alignmentDB/db", "--alignment-mode", str(ali_mode)], 
+            f"{dio_alis}/logs/align.log", threads = args.threads)
+        run_mmseqs(["createtsv", f"{dio_alis}/sequenceDB/db", 
+            f"{dio_alis}/sequenceDB/db", f"{dio_alis}/alignmentDB/db", 
+            f"{dio_alis}/hits.tsv"], f"{dio_alis}/logs/createtsv.log")
+        
+        # parse alignment results
+        hits = pd.read_csv(f"{dio_alis}/hits.tsv", sep = "\t", 
+            usecols = [1, 3], names = ["gene", "identity"])
+        hits = core.merge(hits, on = "gene", how = "right")
+        hits = hits.drop(["gene"], axis = 1)
         
         # calculate median identity per genome and add to identity matrix
         ids = hits.groupby("genome").aggregate(lambda l: median(l))

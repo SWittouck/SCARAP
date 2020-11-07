@@ -23,7 +23,6 @@ Remark: all scripts import utils
     * imports readerswriters, computers, callers
 * computers.py:
     * functions that perform more complex computations
-    * imports readerswriters, callers
 * readerswriters.py:
     * functions that perform simple reading/writing operations
 * callers.py:

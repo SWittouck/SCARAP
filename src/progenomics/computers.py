@@ -7,66 +7,7 @@ from Bio import SeqIO, SeqRecord
 from random import shuffle
 from statistics import mean
 
-from callers import *
-from readerswriters import *
 from utils import *
-        
-def align_seed_genome(seed_genome, pan, dio_seqs, dio_alis, ali_mode, threads):
-    """Aligns sequences of a seed genome to their respective families.
-    
-    This function is needed by the clust module (task). 
-    
-    Args:
-        seed_genome (str): The name of the seed genome.
-        pan (pd.DataFrame): A dataframe with the columns gene, genome and 
-            orthogroup; the orthogroup should only have one unique value.
-        dio_seqs (str): The path to the folder with one fasta file per 
-            orthogroup.
-        dio_alis (str): The path to the folder with one subfolder per 
-            orthogroup, containing a target database and an alignment database.
-        ali_mode (int): The alignment mode for mmseqs align. 
-        threads (int): The number of threads to use. 
-        
-    Returns:
-        A DataFrame with the columns genome and identity.
-    """
-  
-    # define some needed variables
-    fam = pan.orthogroup.tolist()[0]
-    if not seed_genome in pan.genome.tolist():
-        return(pd.DataFrame({"genome": [], "orthogroup": [], "identity": []}))
-    seed_gene = pan.gene.tolist()[pan.genome.tolist().index(seed_genome)]
-    dio_fam = f"{dio_alis}/{fam}"
-  
-    # find sequence of seed and create the query db 
-    seqs = read_fasta(f"{dio_seqs}/{fam}.fasta")
-    for seq in seqs:
-        if seq.id == seed_gene:
-            write_fasta([seq], f"{dio_fam}/seed.fasta")
-    for dir in ["seedDB", "alignmentDB"]:
-        makedirs_smart(f"{dio_fam}/{dir}")
-    run_mmseqs(["createdb", f"{dio_fam}/seed.fasta", 
-        f"{dio_fam}/seedDB/db"], f"{dio_fam}/logs/createseeddb.log", 
-        threads = threads)
-    update_prefdb(f"{dio_fam}/seedDB/db", f"{dio_fam}/sequenceDB/db", 
-        f"{dio_fam}/prefDB/db")
-    
-    # run mmseqs align
-    run_mmseqs(["align", f"{dio_fam}/seedDB/db",
-        f"{dio_fam}/sequenceDB/db", f"{dio_fam}/prefDB/db", 
-        f"{dio_fam}/alignmentDB/db", "--alignment-mode", str(ali_mode)], 
-        f"{dio_fam}/logs/align.log", threads = threads)
-    run_mmseqs(["createtsv", f"{dio_fam}/seedDB/db", 
-        f"{dio_fam}/sequenceDB/db", f"{dio_fam}/alignmentDB/db", 
-        f"{dio_fam}/hits.tsv"], f"{dio_fam}/logs/createtsv.log")
-        
-    # parse results --> dataframe with genome, orthogroup, identity
-    hits = pd.read_csv(f"{dio_fam}/hits.tsv", sep = "\t", usecols = [1, 3], 
-        names = ["gene", "identity"])
-    pan = pan.merge(hits, on = "gene", how = "right")
-    pan = pan.drop(["gene"], axis = 1)
-    
-    return(pan)
 
 def subset_idmat(matrix, rownames, rownames_sub):
     """
