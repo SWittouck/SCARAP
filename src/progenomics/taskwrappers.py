@@ -36,6 +36,11 @@ def run_build_withchecks(args):
     logging.info("checking arguments other than output folder")
     check_infile(args.faapaths)
     check_infile(args.pangenome)
+    n_genomes = sum([1 for line in open(args.faapaths, "r")])
+    if args.min_genomes > n_genomes:
+        args.min_genomes = n_genomes
+        logging.info(f"min_genomes reduced to {args.min_genomes}, since that's "
+            "the total number of genomes")
 
     logging.info("checking dependencies")
     check_tool("hmmbuild", ["-h"])
@@ -167,6 +172,11 @@ def run_core_pipeline_withchecks(args):
             "the number of genomes")
         args.seedfilter = n_genomes * 8 // 10 # result is still integer
         logging.info(f"seedfilter set to {args.seedfilter}")
+    if args.allfilter > 1:
+        args.allfilter = args.allfilter / 100
+        logging.info(f"corrected allfilter value to {str(args.allfilter)}")
+    elif args.allfilter > 100:
+        logging.error("allfilter should be between 0 and 1")
 
     logging.info("checking dependencies")
     check_tool("orthofinder")
