@@ -244,12 +244,22 @@ def run_supermatrix(args):
 
     else:
 
-        logging.info("gathering amino acid sequences of orthogroups")
+        logging.info("reading core genome") 
         coregenome = read_genes(args.coregenome)
+        orthogroups = coregenome["orthogroup"].unique()
+        genomes = coregenome["genome"].unique()
+        logging.info(f"detected {len(orthogroups)} orthogroups in "
+            f"{len(genomes)} genomes")
+    
+        logging.info("removing same-genome copies of core genes")
+        coregenome = coregenome.drop_duplicates(["genome", "orthogroup"], 
+            keep = False)
+
+        logging.info("gathering amino acid sequences of orthogroups")
         faa_fins = read_lines(args.faapaths)
         gather_orthogroup_sequences(coregenome, faa_fins, seqs_aas_dio)
-        logging.info(f"gathered sequences for {len(os.listdir(seqs_aas_dio))} "
-            f"core orthogroups")
+        # logging.info(f"gathered sequences for {len(os.listdir(seqs_aas_dio))} "
+        #     f"core orthogroups")
 
         logging.info("aligning orthogroups on the amino acid level")
         orthogroups = [os.path.splitext(file)[0] for file in
@@ -311,7 +321,8 @@ def run_clust(args):
     core = read_genes(args.coregenome)
     fams = core["orthogroup"].unique()
     genomes = core["genome"].unique()
-    logging.info(f"detected {len(fams)} orthogroups")
+    logging.info(f"detected {len(fams)} orthogroups in "
+        f"{len(genomes)} genomes")
     
     if args.max_clusters == 0:
         args.max_clusters = len(genomes)

@@ -370,16 +370,21 @@ def collapse_pangenome(pangenome, faapathsfin, reprsfout, famprefix,
         SeqIO.write(reprs, reprshout, "fasta")
     shutil.rmtree(tempdio)
 
-"""
-Function to construct a supermatrix given alignments of individual single-copy
-core orthogroups. If there are two or more copies of an orthogroup in a genome,
-all copies will be dropped.
-Input:
-  - coregenome: DataFrame with columns gene, genome, orthogroup
-  - alifins: input files with alignments of single-copy core orthogroups
-  - supermatrixfout: fasta file containing the supermatrix alignment
-"""
 def construct_supermatrix(coregenome, alifins, supermatrixfout):
+    """Constructs a contatenated alignment (= supermatrix).
+    
+    Function to construct a supermatrix given alignments of individual single-copy
+    core orthogroups. If there are two or more copies of an orthogroup in a genome,
+    all copies will be dropped.
+    
+    Args:
+        coregenome (DataFrame): A table with the columns gene, genome and 
+            orthogroup.
+        alifins (list): A list of input files containing alignments of 
+            single-copy core orthogroups.
+        supermatrixfout (str): A path to a fasta file to write the supermatrix 
+            to.
+    """
 
     supermatrix = {}
     genomes = list(set(coregenome.genome))

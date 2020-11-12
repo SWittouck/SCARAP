@@ -34,7 +34,8 @@ Progenomics is able to perform a number of specific tasks related to prokaryotic
 * `checkgenomes`: assess the quality of genomes in a core genome
 * `checkgroups`: assess the quality of orthogroups in a core genome
 * `filter`: filter the genomes/orthogroups in a pangenome
-* `supermatrix`: construct a concatenated core orthogroup alignment from a core genome
+* `supermatrix`: construct a concatenated core orthogroup alignment from a core genome (same-genome copies of orthogroups are removed)
+* `clust`: cluster a set of genomes using a core genome, given a maximum number of clusters and/or an identity threshold (same-genome copies of orthogroups are removed)
 
 A full core and pangenome pipeline are also implemented:
 
