@@ -124,6 +124,11 @@ def run_clust_withchecks(args):
     logging.info("checking arguments other than output folder")
     check_infile(args.fastapaths)
     check_infile(args.coregenome)
+    if args.identity > 1:
+        args.identity = args.identity / 100
+        logging.info(f"corrected identity value to {str(args.identity)}")
+    elif args.identity > 100:
+        logging.error("identity should be between 0 and 1")
 
     logging.info("checking dependencies")
     check_tool("mmseqs", ["-h"])
@@ -155,6 +160,13 @@ def run_core_pipeline_withchecks(args):
     logging.info("checking arguments other than output folder")
     check_infile(args.faapaths)
     check_fastas(args.faapaths)
+    n_genomes = sum([1 for line in open(args.faapaths, "r")])
+    if args.seeds > n_genomes:
+        args.seeds = n_genomes
+        logging.info(f"number of seeds reduced to {args.seeds}, since that's "
+            "the number of genomes")
+        args.seedfilter = n_genomes * 8 // 10 # result is still integer
+        logging.info(f"seedfilter set to {args.seedfilter}")
 
     logging.info("checking dependencies")
     check_tool("orthofinder")

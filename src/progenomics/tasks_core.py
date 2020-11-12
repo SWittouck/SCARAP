@@ -288,17 +288,13 @@ def run_supermatrix(args):
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
 
 def run_clust(args):
-    
-    logging.info("processing parameters")
+  
     if "exact" in args and args.exact:
         ali_mode = 3
+        logging.info("identity calculation set to exact")
     else:
         ali_mode = 1
-    if args.identity > 1:
-        args.identity = args.identity / 100
-        logging.info(f"corrected identity value to {str(args.identity)}")
-    elif args.identity > 100:
-        logging.error("identity should be between 0 and 1")
+        logging.info("identity calculation set to approximate")
 
     logging.info("creating output subfolders")
     dio_seqs = os.path.join(args.outfolder, "tmp_seqs")
