@@ -167,7 +167,7 @@ def run_search(args):
     if os.path.isfile(domtblfio):
         logging.info("existing hmmer domtbl detected - skipping hmmsearch")
     else:
-        run_hmmsearch(args.db, queryfins, domtblfio)
+        run_hmmsearch(args.db, queryfins, domtblfio, args.threads)
     hits = read_domtbl(domtblfio)
     # write_tsv(hits, os.path.join(args.outfolder, "hits.tsv"))
     genes_genomes = extract_genes(queryfins)

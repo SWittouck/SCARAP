@@ -21,6 +21,8 @@ def run_pan_withchecks(args):
     logging.info("checking dependencies")
     if args.method in ["O-B", "O-D"]:
         check_tool("orthofinder")
+    elif args.method == "S":
+        check_tool("mmseqs", ["-h"])
     else:
         check_tool("mmseqs", ["-h"])
         check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode

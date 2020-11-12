@@ -68,7 +68,7 @@ def parse_arguments():
     parser_pan_parent.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_pan_parent.add_argument("-d", "--method", default = "FH",
-        choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D"],
+        choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
         help = "pangenome inference method [default: FH]")
     parser_pan_parent.add_argument("outfolder",
         help = "output folder for pangenome file")
@@ -117,6 +117,8 @@ def parse_arguments():
             "the 'pan' strategy")
     parser_search.add_argument("-o", "--orthogroups",
         help = "input file with subset of orthogroups in the database to use")
+    parser_search.add_argument("-t", "--threads", default = 8, type = int,
+        help = "number of threads to use [default 8]")
     parser_search.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
 
@@ -197,9 +199,9 @@ def parse_arguments():
         help = "input file with paths to faa files of genomes")
     parser_core_pipeline.add_argument("outfolder",
         help = "output folder")
-    parser_core_pipeline.add_argument("-d", "--method", default = "of_blast",
-        choices = ["of_blast", "of_diamond"],
-        help = "pangenome inference method [default: of_blast]")
+    parser_core_pipeline.add_argument("-d", "--method", default = "FH",
+        choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
+        help = "pangenome inference method [default: FH]")
     parser_core_pipeline.add_argument("-e", "--seeds", default = 50, type = int,
         help = "number of seed genomes to use [default 50]")
     parser_core_pipeline.add_argument("-f", "--seedfilter", default = 40,

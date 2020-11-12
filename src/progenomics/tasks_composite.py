@@ -23,8 +23,8 @@ def run_pan_pipeline(args):
 
     logging.info("STEP 3 - training score cutoffs for profiles")
     args_search = Namespace(qpaths = args.faapaths, db = args.outfolder,
-        outfolder = args.outfolder, trainstrategy = "pan",
-        pangenome = args.pangenome)
+        outfolder = args.outfolder, trainstrategy = "pan", 
+        threads = args.threads, pangenome = args.pangenome)
     run_search(args_search)
 
 def run_core_pipeline(args):
@@ -55,7 +55,7 @@ def run_core_pipeline(args):
 
     logging.info("STEP 3 - searching candidate core orthogroups in all genomes")
     args_search = Namespace(qpaths = args.faapaths, db = candsdio,
-        outfolder = candsdio, trainstrategy = "core")
+        outfolder = candsdio, trainstrategy = "core", threads = args.threads)
     run_search(args_search)
 
     logging.info("STEP 4 - selecting core orthogroups from candidates")

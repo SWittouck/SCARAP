@@ -78,13 +78,24 @@ def run_hmmpress(fins_hmms, dout_hmm_db):
     subprocess.run(["hmmpress", fout_hmm_db], stdout = subprocess.PIPE)
     subprocess.run(["rm", fout_hmm_db])
 
-def run_hmmsearch(din_hmm_db, fins_genomes, fout_domtbl):
+def run_hmmsearch(din_hmm_db, fins_genomes, fout_domtbl, threads = 1):
     fin_hmm_db = os.path.join(din_hmm_db, "hmm_db")
     fout_temp_genomes = din_hmm_db + "/genomes.temp"
     with open(fout_temp_genomes, 'w') as hout_temp_genomes:
         for fin_genome in fins_genomes:
-            with open(fin_genome) as hin_genome:
+            with open_smart(fin_genome) as hin_genome:
                 hout_temp_genomes.write(hin_genome.read())
     subprocess.run(["hmmsearch", "-o", "/dev/null", "--domtblout", fout_domtbl,
-        fin_hmm_db, fout_temp_genomes])
+        "--cpu", str(threads), fin_hmm_db, fout_temp_genomes])
+    subprocess.run(["rm", fout_temp_genomes])
+
+def run_hmmscan(din_hmm_db, fins_genomes, fout_domtbl, threads = 1):
+    fin_hmm_db = os.path.join(din_hmm_db, "hmm_db")
+    fout_temp_genomes = din_hmm_db + "/genomes.temp"
+    with open(fout_temp_genomes, 'w') as hout_temp_genomes:
+        for fin_genome in fins_genomes:
+            with open_smart(fin_genome) as hin_genome:
+                hout_temp_genomes.write(hin_genome.read())
+    subprocess.run(["hmmscan", "-o", "/dev/null", "--domtblout", fout_domtbl,
+        "--cpu", str(threads), fin_hmm_db, fout_temp_genomes])
     subprocess.run(["rm", fout_temp_genomes])

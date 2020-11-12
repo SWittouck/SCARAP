@@ -971,6 +971,15 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
     infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
+    
+    if splitstrategy == "S":
+      
+        logging.info("writing pangenome file")
+        shutil.copyfile(f"{dout}/superfamilies/pangenome.tsv", 
+            f"{dout}/pangenome.tsv")
+        logging.info("removing temporary folders")
+        shutil.rmtree(f"{dout}/superfamilies")
+        return()
       
     logging.info("STAGE 2: splitting of superfamilies")
 
@@ -1007,3 +1016,7 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     
     logging.info("writing pangenome file")
     write_tsv(pangenome, f"{dout}/pangenome.tsv")
+    
+    logging.info("removing temporary folders")
+    shutil.rmtree(f"{dout}/superfamilies")
+    shutil.rmtree(f"{dout}/tmp")

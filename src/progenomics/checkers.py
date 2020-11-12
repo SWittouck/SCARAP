@@ -53,7 +53,7 @@ def check_fasta(path):
     if not os.path.isfile(path):
         logging.error("one or more faa files not found")
         sys.exit(1)
-    with open(path, "r") as handle:
+    with open_smart(path) as handle:
         try:
             fasta = SeqIO.parse(handle, "fasta")
             if not any(fasta):
