@@ -10,8 +10,7 @@ from statistics import mean
 from utils import *
 
 def subset_idmat(matrix, rownames, rownames_sub):
-    """
-    Subsets an identity matrix. 
+    """Subsets an identity matrix. 
     
     Args:
         matrix: An identity matrix as a numpy array
@@ -29,8 +28,7 @@ def subset_idmat(matrix, rownames, rownames_sub):
     return(matrix_sub, rownames_sub)
 
 def distmat_from_idmat(idmat):
-    """
-    Calculates a distance matrix.
+    """Calculates a distance matrix.
     
     Args:
         idmat: An identity matrix as a numpy array
@@ -47,11 +45,16 @@ def distmat_from_idmat(idmat):
     return(dm) 
     
 def identity_matrix(seqrecords):
-    '''
-    Calculates a pairwise sequence identity matrix for a list of DNA sequences
-    or SeqRecords.
+    '''Calculates a pairwise sequence identity matrix.
+    
     Probably approximately as fast as the distmat tool from EMBOSS, but this 
     function can easily be parallelized on (batches of) columns.
+    
+    Args:
+        seqrecords (list): A list of DNA sequences or SeqRecords.
+        
+    Returns:
+        A matrix with sequence identity values. 
     '''
 
     n_seqs = len(seqrecords)
@@ -96,6 +99,9 @@ def split_possible(genomes):
     Args:
         genomes (list): For each gene in the family, the genome that it belongs
             to.
+            
+    Returns:
+        true/false
     """
     n_genes = len(genomes)
     n_genomes = len(set(genomes))
@@ -117,7 +123,7 @@ def calc_pgo(genomes_fam1, genomes_fam2):
             belongs to.
             
     Returns:
-        The observed pgo
+        The observed pgo.
     """
     if 0 in [len(genomes_fam1), len(genomes_fam2)]: return 0
     n_unique_fam1 = len(set(genomes_fam1))
@@ -174,9 +180,14 @@ def pred_pgo(genomes_fam1, genomes_fam2):
     return(pgo)
     
 def train_cutoffs(hits):
-    """
-    The table "hits" should have the columns "gene", "profile", "score" and
-    "positive".
+    """Trains a cutoff per profile (orthogroup).
+    
+    Args:
+        hits (DataFrame): A table with the columns gene, profile, score and 
+            positive.
+            
+    Returns:
+        A table with the columns profile and cutoff.
     """
     profile_to_cutoff = {}
     for profile, profile_hits in hits.groupby("profile"):
@@ -216,25 +227,48 @@ def process_scores(hits, orthogroups):
     genes = hits.loc[ixs_to_keep, :][["gene", "orthogroup"]]
     return(genes)
 
-def checkgenomes(coregenome):
-    n_groups = len(set(coregenome.orthogroup))
-    genomes = {"genome": [], "completeness": [], "redundancy": []}
-    for genome, genes in coregenome.groupby("genome"):
-        genomes["genome"].append(genome)
-        genomes["completeness"].append(len(set(genes.orthogroup)) / n_groups)
-        genomes["redundancy"].append(sum(genes.orthogroup.value_counts() > 1) /
-            n_groups)
-    genomes = pd.DataFrame(genomes)
+def checkgenomes(genes_core):
+    """Computes genome statistics from a core genome table.
+    
+    Args:
+        genes_core (Data Frame): A table with columns gene, genome and 
+            orthogroup.
+        
+    Returns:
+        A pandas Data Frame with the columns genome, completeness and 
+            contamination.
+    """
+    n_groups = len(set(genes_core.orthogroup))
+    genomes = genes_core\
+        .groupby(["genome", "orthogroup"])\
+        .agg(n_copies = ("gene", len))\
+        .reset_index()\
+        .groupby("genome")\
+        .agg(completeness = ("n_copies", lambda x: len(x) / n_groups),
+            contamination = ("n_copies", lambda x: sum(x > 1) / n_groups))\
+        .reset_index()
     return(genomes)
 
-def checkgroups(coregenome):
-    n_genomes = len(set(coregenome.genome))
-    orthogroups = {"orthogroup": [], "coreness": []}
-    for orthogroup, genes in coregenome.groupby("orthogroup"):
-        orthogroups["orthogroup"].append(orthogroup)
-        orthogroups["coreness"].append(sum(genes.genome.value_counts() == 1) /
-            n_genomes)
-    orthogroups = pd.DataFrame(orthogroups)
+def checkgroups(genes):
+    """Computes orthogroup statistics from a pangenome table.
+    
+    Args:
+        genes (Data Frame): A table with columns gene, genome and orthogroup.
+        
+    Returns:
+        A pandas Data Frame with the columns orthogroup, occurrence and 
+            occurrence_singlecopy.
+    """
+    n_genomes = len(set(genes.genome))
+    orthogroups = genes\
+        .groupby(["genome", "orthogroup"])\
+        .agg(n_copies = ("gene", len))\
+        .reset_index()\
+        .groupby("orthogroup")\
+        .agg(occurrence = ("n_copies", len), 
+            occurrence_singlecopy = ("n_copies", lambda x: sum(x == 1)))\
+        .apply(lambda x: x / n_genomes)\
+        .reset_index()
     return(orthogroups)
 
 def filter_genomes(pangenome, genomes):
@@ -295,8 +329,10 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
 
     # filter orthogroups based on number of genomes they occur in
     if min_genomes > 1:
-        pangenome = pangenome.groupby("orthogroup").\
-            filter(lambda x: len(set(x["genome"])) >= min_genomes)
+        pangenome = pangenome\
+            .groupby("orthogroup")\
+            .filter(lambda x: len(set(x["genome"])) >= min_genomes)\
+            .reset_index()
 
     # make dictionary to store faapaths of genomes
     genome_to_faapath = {filename_from_path(faapath): faapath for faapath in

@@ -61,7 +61,8 @@ def run_core_pipeline(args):
     logging.info("STEP 4 - selecting core orthogroups from candidates")
     candcoregenome = read_genes(os.path.join(candsdio, "genes.tsv"))
     candcorefams = checkgroups(candcoregenome)
-    corefams = candcorefams[candcorefams.coreness >= args.allfilter].orthogroup
+    corefams = candcorefams[candcorefams.occurrence >= args.allfilter]\
+        .orthogroup
     coregenome = filter_groups(candcoregenome, corefams)
     write_tsv(corefams, os.path.join(args.outfolder, "core_orthogroups.txt"))
     write_tsv(coregenome, os.path.join(args.outfolder, "coregenome.tsv"))
