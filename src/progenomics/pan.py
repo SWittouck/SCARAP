@@ -967,6 +967,24 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
   
     # threads per process
     tpp = 1
+    
+    logging.info("{len(faafins) genomes were supplied")
+    
+    if (len(faafins)) == 1:
+      
+        logging.info("only one genome supplied - each gene will be its own "
+            "orthogroup")
+            
+        logging.info("reading gene names")
+        pangenome = extract_genes(faafins)
+        logging.info("assiging names to gene families")
+        pangenome["orthogroup"] = [f"F{c}" for c in \
+            padded_counts(len(pangenome.index))]
+    
+        logging.info("writing pangenome file")
+        write_tsv(pangenome, f"{dout}/pangenome.tsv")
+        
+        return()
   
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
