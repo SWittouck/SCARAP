@@ -446,6 +446,8 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         if n_reps < min_reps:
             seedmatrix = update_seedmatrix(seedmatrix, sequences, 
                 f"{dio_tmp}/ficlin", threads)
+            # return emptiness if all sequences are identical
+            if all(seedmatrix[0, :] == 1): return([None] * 8)
             linclusters = np.argmax(seedmatrix, 1)
             pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_hclust = True
@@ -511,6 +513,8 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         if n_reps < min_reps:
             seedmatrix = update_seedmatrix(seedmatrix, sequences, 
                 f"{dio_tmp}/ficlin", threads)
+            # return emptiness if all sequences are identical
+            if all(seedmatrix[0, :] == 1): return([None] * 8)
             linclusters = np.argmax(seedmatrix, 1)
             pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_tree = True
@@ -730,7 +734,10 @@ def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps,
     pan1, pan2, sequences1, sequences2, hclust1, hclust2, seedmatrix1, \
         seedmatrix2 = split_family_FH(pan, sequences, hclust, ficlin, min_reps,
         max_reps, seedmatrix, threads, dio_tmp)
-    split = assess_split(pan1, pan2, family)
+    if pan1 is None:
+        split = False # don't split if all sequences are identical
+    else:
+        split = assess_split(pan1, pan2, family)
     
     if split:
 
@@ -771,7 +778,10 @@ def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps,
     pan1, pan2, sequences1, sequences2, tree1, tree2, seedmatrix1, \
         seedmatrix2 = split_family_FT(pan, sequences, tree, ficlin, min_reps, 
         max_reps, seedmatrix, threads, dio_tmp)
-    split = assess_split(pan1, pan2, family)
+    if pan1 is None:
+        split = False # don't split if all sequences are identical
+    else:
+        split = assess_split(pan1, pan2, family)
     
     if split:
 
@@ -968,7 +978,7 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     # threads per process
     tpp = 1
     
-    logging.info("{len(faafins) genomes were supplied")
+    logging.info(f"{len(faafins)} genomes were supplied")
     
     if (len(faafins)) == 1:
       

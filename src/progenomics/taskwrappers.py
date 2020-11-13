@@ -13,8 +13,7 @@ def run_pan_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_infile(args.faapaths)
-    if args.method in ["O-B", "O-D"]:
-        check_fastas(args.faapaths) # mmseqs can handle zipped fastas
+    check_fastas(args.faapaths)
     if not args.species is None:
         check_infile(args.species)
 

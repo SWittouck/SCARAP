@@ -51,7 +51,7 @@ def check_outdir(outdir, move_existing = True):
 
 def check_fasta(path):
     if not os.path.isfile(path):
-        logging.error("one or more faa files not found")
+        logging.error("one or more fasta files not found")
         sys.exit(1)
     with open_smart(path) as handle:
         try:
@@ -59,7 +59,7 @@ def check_fasta(path):
             if not any(fasta):
                 raise Exception()
         except Exception:
-            logging.error("one or more faa files are not in fasta format")
+            logging.error("one or more fasta files are not in fasta format")
             sys.exit(1)
 
 def check_fastas(path):
