@@ -330,6 +330,7 @@ def run_clust(args):
     
     logging.info("removing same-genome copies of core genes")
     core = core.drop_duplicates(["genome", "orthogroup"], keep = False)
+    fams = core["orthogroup"].unique() # in case some fams were fully removed
     
     logging.info("gathering sequences of orthogroups")
     fins_faas = read_lines(args.fastapaths)
