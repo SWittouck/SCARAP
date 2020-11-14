@@ -102,7 +102,7 @@ def run_pan_hier(args):
         outfolder = metapandio, threads = args.threads,
         method = args.method))
 
-    logging.info("started inflating metapangenome with species pangenomes")
+    logging.info("inflating metapangenome with species pangenomes")
     speciespans = [read_genes(panfin) for panfin in speciespanfios]
     speciespans = pd.concat(speciespans)
     speciespans = speciespans.rename(columns = {"orthogroup": "speciesfam"})
@@ -296,6 +296,15 @@ def run_supermatrix(args):
 
         logging.info("concatenating nucleotide alignments")
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)
+        
+    logging.info("removing temporary folders")
+    shutil.rmtree(seqs_aas_dio)
+    shutil.rmtree(alis_aas_dio)
+    try:
+        shutil.rmtree(seqs_nucs_dio)
+        shutil.rmtree(alis_nucs_dio)
+    except FileNotFoundError:
+        pass
 
 def run_clust(args):
   
