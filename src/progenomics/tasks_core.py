@@ -435,6 +435,7 @@ def run_clust(args):
     logging.info("assigning cluster numbers")
     clusters = np.argmax(id_m, 1)
     genomes_clusters = pd.DataFrame({"genome": genomes, "cluster": clusters})
+    logging.info(f"{len(set(clusters))} clusters found")
     
     logging.info("writing clusters.tsv")
     write_tsv(genomes_clusters, fout_clusters)

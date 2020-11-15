@@ -127,12 +127,17 @@ def run_clust_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_infile(args.fastapaths)
+    n_genomes = sum([1 for line in open(args.fastapaths, "r")])
+    if args.max_clusters > n_genomes:
+        args.max_clusters = n_genomes
+        logging.info(f"max_clusters reduced to {args.max_clusters}, since "
+            "that's the total number of genomes")
     check_infile(args.coregenome)
-    if args.identity > 1:
+    if args.identity > 100:
+        logging.error("identity should be between 0 and 1")
+    elif args.identity > 1:
         args.identity = args.identity / 100
         logging.info(f"corrected identity value to {str(args.identity)}")
-    elif args.identity > 100:
-        logging.error("identity should be between 0 and 1")
 
     logging.info("checking dependencies")
     check_tool("mmseqs", ["-h"])
@@ -171,11 +176,11 @@ def run_core_pipeline_withchecks(args):
             "the number of genomes")
         args.seedfilter = n_genomes * 8 // 10 # result is still integer
         logging.info(f"seedfilter set to {args.seedfilter}")
-    if args.allfilter > 1:
+    if args.allfilter > 100:
+        logging.error("allfilter should be between 0 and 1")
+    elif args.allfilter > 1:
         args.allfilter = args.allfilter / 100
         logging.info(f"corrected allfilter value to {str(args.allfilter)}")
-    elif args.allfilter > 100:
-        logging.error("allfilter should be between 0 and 1")
 
     logging.info("checking dependencies")
     check_tool("orthofinder")
