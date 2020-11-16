@@ -233,66 +233,79 @@ def run_supermatrix(args):
     seqs_nucs_dio = os.path.join(args.outfolder, "seqs_nucs")
     alis_aas_dio = os.path.join(args.outfolder, "alis_aas")
     alis_nucs_dio = os.path.join(args.outfolder, "alis_nucs")
-
-    logging.info("creating output subfolders")
-    os.makedirs(seqs_aas_dio, exist_ok = True)
-    os.makedirs(alis_aas_dio, exist_ok = True)
-
-    if os.path.isfile(sm_aas_fout):
-
-        logging.info("existing amino acid supermatrix detected - moving on")
-
-    else:
-
-        logging.info("reading core genome") 
-        coregenome = read_genes(args.coregenome)
-        orthogroups = coregenome["orthogroup"].unique()
-        genomes = coregenome["genome"].unique()
-        logging.info(f"detected {len(orthogroups)} orthogroups in "
-            f"{len(genomes)} genomes")
     
-        logging.info("removing same-genome copies of core genes")
-        coregenome = coregenome.drop_duplicates(["genome", "orthogroup"], 
-            keep = False)
+    # exit if requested supermatrices already exist
+    if os.path.isfile(sm_aas_fout) and (args.ffnpaths is None or \
+        os.path.isfile(sm_nucs_fout)):
+        logging.info("requested supermatrices already exist - moving on")
+        return()
+    
+    logging.info("reading core genome") 
+    coregenome = read_genes(args.coregenome)
+    orthogroups = coregenome["orthogroup"].unique()
+    genomes = coregenome["genome"].unique()
+    logging.info(f"detected {len(orthogroups)} orthogroups in "
+        f"{len(genomes)} genomes")
 
+    logging.info("removing same-genome copies of core genes")
+    coregenome = coregenome.drop_duplicates(["genome", "orthogroup"], 
+        keep = False)
+    
+    seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
+    alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
+        
+    # move on if dir already exists and is not empty
+    if os.path.isdir(seqs_aas_dio) and os.listdir(seqs_aas_dio):
+      
+        logging.info("existing amino acid sequences detected - moving on")
+        
+    else:
+    
         logging.info("gathering amino acid sequences of orthogroups")
         faa_fins = read_lines(args.faapaths)
+        os.makedirs(seqs_aas_dio, exist_ok = True)
         gather_orthogroup_sequences(coregenome, faa_fins, seqs_aas_dio)
-        # logging.info(f"gathered sequences for {len(os.listdir(seqs_aas_dio))} "
-        #     f"core orthogroups")
+        
+    if os.path.isdir(alis_aas_dio) and os.listdir(alis_aas_dio):
+      
+        logging.info("existing amino acid alignments detected - moving on")
+        
+    else: 
 
         logging.info("aligning orthogroups on the amino acid level")
-        orthogroups = [os.path.splitext(file)[0] for file in
-            os.listdir(seqs_aas_dio)]
-        seqs_aas_fios = make_paths(orthogroups, seqs_aas_dio, ".fasta")
-        alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
+        os.makedirs(alis_aas_dio, exist_ok = True)
         run_mafft_parallel(seqs_aas_fios, alis_aas_fios)
 
-        logging.info("concatenating amino acid alignments")
-        construct_supermatrix(coregenome, alis_aas_fios, sm_aas_fout)
+    logging.info("concatenating amino acid alignments")
+    construct_supermatrix(coregenome, alis_aas_fios, sm_aas_fout)
 
-    if not args.ffnpaths is None and os.path.isfile(sm_nucs_fout):
-
-        logging.info("existing nucleotide supermatrix detected - moving on")
-
-    if not args.ffnpaths is None and not os.path.isfile(sm_nucs_fout):
-
-        logging.info("creating output subfolders")
-        os.makedirs(seqs_nucs_dio, exist_ok = True)
-        os.makedirs(alis_nucs_dio, exist_ok = True)
-
-        logging.info("gathering nucleotide sequences of orthogroups")
-        coregenome = read_genes(args.coregenome)
-        ffn_fins = read_lines(args.ffnpaths)
-        gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
-
-        logging.info("aligning orthogroups on the nucleotide level")
-        orthogroups = [os.path.splitext(file)[0] for file in
-            os.listdir(seqs_aas_dio)]
+    if not args.ffnpaths is None:
+      
         seqs_nucs_fios = make_paths(orthogroups, seqs_nucs_dio, ".fasta")
         alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
         alis_nucs_fios = make_paths(orthogroups, alis_nucs_dio, ".aln")
-        reverse_align_parallel(seqs_nucs_fios, alis_aas_fios, alis_nucs_fios)
+        
+        if os.path.isdir(seqs_nucs_dio) and os.listdir(seqs_nucs_dio):
+          
+            logging.info("existing nucleotide sequences detected - moving on")
+            
+        else:
+    
+            logging.info("gathering nucleotide sequences of orthogroups")
+            ffn_fins = read_lines(args.ffnpaths)
+            os.makedirs(seqs_nucs_dio, exist_ok = True)
+            gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
+            
+        if os.path.isdir(alis_nucs_dio) and os.listdir(alis_nucs_dio):
+          
+            logging.info("existing nucleotide alignments detected - moving on")
+            
+        else:
+
+            logging.info("aligning orthogroups on the nucleotide level")
+            os.makedirs(alis_nucs_dio, exist_ok = True)
+            reverse_align_parallel(seqs_nucs_fios, alis_aas_fios, 
+                alis_nucs_fios)
 
         logging.info("concatenating nucleotide alignments")
         construct_supermatrix(coregenome, alis_nucs_fios, sm_nucs_fout)

@@ -1,4 +1,5 @@
 import concurrent.futures
+import logging
 import numpy as np
 import os
 import pandas as pd
@@ -286,27 +287,36 @@ def select_representative(records, longest = False):
     else: 
         return(records[len(records) // 2])
 
-"""
-Function to align a SeqRecord of nucleotide sequences, given a SeqRecord
-of aligned amino acid sequences.
-Input:
-  - og_nucs: SeqRecord of nucleotide sequences to align
-  - og_aas_aligned = SeqRecord of amino acid sequences that are aligned
-    (reference alignment)
-Output:
-  - SeqRecord of aligned nucleotide sequences
-Naming:
-  - sr = SeqRecord (Biopython)
-  - og = orthogroup
-  - nucs = nucleotides
-  - aas = amino acids
-"""
+
 def reverse_align(og_nucs, og_aas_aligned):
+    """Aligns a list of nucleotide sequences. 
+    
+    This function aligns a list of nucleotide sequences, given a list of 
+        aligned amino acid sequences.
+    
+    Naming:
+    
+    * sr = SeqRecord (Biopython)
+    * og = orthogroup
+    * nucs = nucleotides
+    * aas = amino acids
+    
+    Ags: 
+        og_nucs (list): The SeqRecord list of nucleotide sequences to align.
+        og_aas_aligned (list): The SeqRecord list of amino acid sequences that 
+            are already aligned (reference alignment).
+            
+    Returns: 
+        A list with seqrecords of aligned nucleotide sequences.
+    """
     og_aas_aligned = {seq.id: seq.seq for seq in og_aas_aligned}
     og_nucs_aligned = []
     for nucs_sr in og_nucs:
         nucs_id = nucs_sr.id
         nucs_seq = nucs_sr.seq
+        if not nucs_id in og_aas_aligned.keys():
+            logging.warning(f"no translation found for gene {nucs_id}")
+            continue
         aas_gapped_seq = og_aas_aligned[nucs_id]
         nucs_gapped_seq = ""
         nucs_pos = 0
