@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from statistics import median
+from statistics import median, mean
 
 from argparse import Namespace
 from utils import *
@@ -335,6 +335,8 @@ def run_clust(args):
     os.makedirs(dio_alis, exist_ok = True)
     
     fout_clusters = os.path.join(args.outfolder, "clusters.tsv")
+    fout_seeds = os.path.join(args.outfolder, "seeds.txt")
+    fout_identities = os.path.join(args.outfolder, "identities.tsv")
     if os.path.isfile(fout_clusters):
         logging.info("existing cluster file detected - moving on")
         return()
@@ -354,9 +356,15 @@ def run_clust(args):
     core = core.drop_duplicates(["genome", "orthogroup"], keep = False)
     fams = core["orthogroup"].unique() # in case some fams were fully removed
     
-    logging.info("gathering sequences of orthogroups")
-    fins_faas = read_lines(args.fastapaths)
-    gather_orthogroup_sequences(core, fins_faas, dio_seqs)
+    if os.path.isdir(dio_seqs) and os.listdir(dio_seqs):
+      
+        logging.info("existing sequences detected - moving on")
+        
+    else:
+    
+        logging.info("gathering sequences of orthogroups")
+        fins_faas = read_lines(args.fastapaths)
+        gather_orthogroup_sequences(core, fins_faas, dio_seqs)
     
     logging.info("creating database for alignments")
     for dir in ["sequenceDB", "logs"]:
@@ -378,6 +386,7 @@ def run_clust(args):
         "threshold is reached")
     core_grouped = core.copy().groupby("orthogroup")
     core_grouped = [core_fam for fam, core_fam in core_grouped]
+    seeds = []
     while True:
       
         print("|", end = "", flush = True)
@@ -387,7 +396,9 @@ def run_clust(args):
       
         # select seed
         max_ids = np.amax(id_m, 1) # max of each row = max along columns
+        for seed in seeds: max_ids[seed] = 1.1 # avoid seeds being reused
         s = np.argmin(max_ids)
+        seeds.append(s)
         min_max_ids = max_ids[s]
         seed_genome = genomes[s]
         
@@ -395,7 +406,9 @@ def run_clust(args):
         if min_max_ids > args.identity:
             print("")
             logging.info("identity threshold reached")
+            # remove last column from identity matrix
             id_m = np.delete(id_m, -1, 1)
+            seeds = seeds[:-1]
             break
         
         # prepare prefilter database
@@ -433,9 +446,22 @@ def run_clust(args):
             usecols = [1, 3], names = ["gene", "identity"])
         hits = core.merge(hits, on = "gene", how = "right")
         hits = hits.drop(["gene"], axis = 1)
-        
-        # calculate median identity per genome and add to identity matrix
-        ids = hits.groupby("genome").aggregate(lambda l: median(l))
+
+        # calculate mean/median identity with seed per genome
+        if args.method == "median":
+            ids = hits.groupby("genome").aggregate(median)
+        elif args.method[:4] == "mean":
+            p = args.method[4:]
+            if (p == ""): p = "100"
+            p = int(p) / 100
+            def meanp(l, p):
+                start = int(round(((1 - p) / 2) * len(l)))
+                stop = int(round((1 - (1 - p) / 2) * len(l)))
+                if start == stop: return(median(l))
+                return(mean(sorted(l)[start:stop]))
+            ids = hits.groupby("genome").aggregate(lambda l: meanp(l, p))
+                
+        # add mean/median identity to identity matrix
         for g, genome in enumerate(genomes):
             id_m[g, -1] = ids.loc[genome, "identity"]
             
@@ -444,6 +470,19 @@ def run_clust(args):
             print("")
             logging.info("max number of clusters reached")
             break
+            
+    logging.info("writing seeds.txt")
+    with open(fout_seeds, "w") as hout_seeds:
+        hout_seeds.write("\n".join([genomes[s] for s in seeds]))
+            
+    logging.info("writing identities.tsv")
+    id_df = pd.DataFrame(id_m)
+    id_df.columns = [genomes[s] for s in seeds]
+    id_df["genome"] = genomes 
+    cols = id_df.columns.tolist()
+    cols = [cols[-1]] + cols[:-1]
+    id_df = id_df[cols]
+    id_df.to_csv(fout_identities, sep = "\t", index = False, header = True)
         
     logging.info("assigning cluster numbers")
     clusters = np.argmax(id_m, 1)

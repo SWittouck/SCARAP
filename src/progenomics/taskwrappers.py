@@ -135,9 +135,29 @@ def run_clust_withchecks(args):
     check_infile(args.coregenome)
     if args.identity > 100:
         logging.error("identity should be between 0 and 1")
+        sys.exit(1)
     elif args.identity > 1:
         args.identity = args.identity / 100
         logging.info(f"corrected identity value to {str(args.identity)}")
+    if args.method == "median":
+        logging.info("per-gene identity values will be aggregated using the "
+            "median of all values")
+    elif args.method == "mean":
+        logging.info("per-gene identity values will be aggregated using "
+            "the mean of all values")
+    elif args.method[:4] == "mean":
+        p = args.method[4:]
+        try:
+            p = int(p)
+            if p > 100 or p <= 0: raise ValueError
+        except ValueError:
+            logging.error("method unknown")
+            sys.exit(1)
+        logging.info(f"per-gene identity values will be aggregated using "
+            f"the mean of the middle {p}% of values")
+    else:
+        logging.error("method unknown")
+        sys.exit(1)
 
     logging.info("checking dependencies")
     check_tool("mmseqs", ["-h"])
@@ -178,6 +198,7 @@ def run_core_pipeline_withchecks(args):
         logging.info(f"seedfilter set to {args.seedfilter}")
     if args.allfilter > 100:
         logging.error("allfilter should be between 0 and 1")
+        sys.exit(1)
     elif args.allfilter > 1:
         args.allfilter = args.allfilter / 100
         logging.info(f"corrected allfilter value to {str(args.allfilter)}")

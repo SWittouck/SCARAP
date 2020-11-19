@@ -182,12 +182,15 @@ def parse_arguments():
         type = float,
         help = "maximum identity of sequences to the seeds of other clusters "
             "[default 1]")
+    
     parser_clust.add_argument("-x", "--exact", action = "store_true",
         help = "perform full alignments [default False]")
     parser_clust.add_argument("-t", "--threads", default = 8, type = int,
         help = "number of threads to use [default 8]")
     parser_clust.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
+    parser_clust.add_argument("-d", "--method", default = "mean",
+        help = "genome-genome comparison method [default: mean]")
 
     parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
         parents = [parser_pan_parent])
