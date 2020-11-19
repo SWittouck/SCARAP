@@ -63,6 +63,9 @@ def check_fasta(path):
             sys.exit(1)
 
 def check_fastas(path):
+    if os.stat(path).st_size == 0:
+        logging.error("fastapaths file is empty")
+        sys.exit(1)
     filenames = []
     for fastapath in open(path):
         fastapath = fastapath.strip()
