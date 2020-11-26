@@ -495,3 +495,21 @@ def run_clust(args):
     logging.info("removing temporary folders")
     shutil.rmtree(dio_seqs)
     shutil.rmtree(dio_alis)
+    
+def run_fetch(args):
+
+    logging.info("creating subfolder for fastas")
+    dout_seqs = os.path.join(args.outfolder, "fastas")
+    os.makedirs(dout_seqs, exist_ok = True)
+
+    logging.info("reading genes") 
+    genes = read_genes(args.genes)
+    fams = genes["orthogroup"].unique()
+    genomes = genes["genome"].unique()
+    logging.info(f"detected {len(fams)} orthogroups in "
+        f"{len(genomes)} genomes")
+        
+    logging.info("gathering sequences of orthogroups")
+    fins_fastas = read_lines(args.fastapaths)
+    gather_orthogroup_sequences(genes, fins_fastas, dout_seqs)
+    

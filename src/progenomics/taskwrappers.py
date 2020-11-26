@@ -164,6 +164,16 @@ def run_clust_withchecks(args):
     
     run_clust(args)
 
+def run_fetch_withchecks(args):
+
+    logging.info("welcome to the fetch task")
+
+    logging.info("checking arguments other than output folder")
+    check_infile(args.fastapaths)
+    check_infile(args.genes)
+    
+    run_fetch(args)
+
 def run_pan_pipeline_withchecks(args):
 
     logging.info("welcome to the pan pipeline")

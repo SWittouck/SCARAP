@@ -33,6 +33,7 @@ TASKS
     supermatrix   --> construct a concatenated core orthogroup alignment from a
                       core genome
     clust         --> cluster genomes in n clusters given their core genes
+    fetch         --> fetch sequences and store in fasta per orthogroup
 PIPELINES
     pan-pipeline  --> infer a pangenome, build a profile HMM database and train
                       score cutoffs from a set of faa files
@@ -182,7 +183,6 @@ def parse_arguments():
         type = float,
         help = "maximum identity of sequences to the seeds of other clusters "
             "[default 1]")
-    
     parser_clust.add_argument("-x", "--exact", action = "store_true",
         help = "perform full alignments [default False]")
     parser_clust.add_argument("-t", "--threads", default = 8, type = int,
@@ -191,6 +191,17 @@ def parse_arguments():
         help = "continue in existing output folder [default False]")
     parser_clust.add_argument("-d", "--method", default = "mean",
         help = "genome-genome comparison method [default: mean]")
+
+    parser_fetch = subparsers.add_parser('fetch')
+    parser_fetch.set_defaults(func = run_fetch_withchecks)
+    parser_fetch.add_argument("fastapaths",
+        help = "input file with paths to ffn/faa files of genomes")
+    parser_fetch.add_argument("genes",
+        help = "input file with genes (columns gene, genome, orthogroup)")
+    parser_fetch.add_argument("outfolder",
+        help = "output folder for fasta files")
+    parser_fetch.add_argument("-c", "--cont", action = "store_true",
+        help = "continue in existing output folder [default False]")
 
     parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
         parents = [parser_pan_parent])
