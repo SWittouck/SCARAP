@@ -49,12 +49,11 @@ def run_orthofinder(faafins, dout, logfout, threads, engine = "blast"):
             "'orthofinder.log'")
         sys.exit(1)
 
-def run_mafft(fin_aa_seqs, fout_aa_seqs_aligned, threads = 1):
-    logging.debug(f"aligning {Path(fin_aa_seqs).stem}")
-    mafft_cline = MafftCommandline(input = fin_aa_seqs, thread = threads)
-    stdout, stderr = mafft_cline()
-    with open(fout_aa_seqs_aligned, "w") as hout_aa_seqs_aligned:
-        hout_aa_seqs_aligned.write(stdout)
+def run_mafft(fin_seqs, fout_aln, threads = 1, options = []):
+    args = ["mafft"] + options + ["--thread", str(threads), fin_seqs]
+    with open(fout_aln, "w") as hout_aln:
+        result = subprocess.run(args, stdout = hout_aln, 
+            stderr = subprocess.PIPE)
 
 def run_mafft_parallel(fins_aa_seqs, fouts_aa_seqs_aligned):
     with concurrent.futures.ProcessPoolExecutor() as executor:

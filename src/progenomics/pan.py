@@ -460,7 +460,7 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
         run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
-            threads)
+            threads, ["--amino"])
         aln = read_fasta(f"{dio_tmp}/repseqs.aln")
         idmat = identity_matrix(aln)
         distmat = distmat_from_idmat(idmat)
@@ -528,7 +528,7 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
         run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
-            threads)
+            threads, ["--amino"])
         run_iqtree(f"{dio_tmp}/repseqs.aln", f"{dio_tmp}/tree", threads, 
             ["-m", "LG"])
         tree = Tree(f"{dio_tmp}/tree/tree.treefile")
