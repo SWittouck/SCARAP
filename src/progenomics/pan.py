@@ -446,9 +446,10 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         if n_reps < min_reps:
             seedmatrix = update_seedmatrix(seedmatrix, sequences, 
                 f"{dio_tmp}/ficlin", threads)
-            # return emptiness if all sequences are identical
-            if all(seedmatrix[0, :] == 1): return([None] * 8)
             linclusters = np.argmax(seedmatrix, 1)
+            # return emptiness if all sequences map to the same seed
+            if (len(set(linclusters))) == 1: 
+                return([None] * 8)
             pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_hclust = True
             
@@ -485,7 +486,7 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         seedmatrix2 = None
         
     # give the subfamilies names 
-    family = pan.orthogroup.tolist()[0]    
+    family = pan.orthogroup.tolist()[0]
     pan1.loc[:, "orthogroup"] = family + "_1"
     pan2.loc[:, "orthogroup"] = family + "_2"
     
@@ -513,9 +514,10 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         if n_reps < min_reps:
             seedmatrix = update_seedmatrix(seedmatrix, sequences, 
                 f"{dio_tmp}/ficlin", threads)
-            # return emptiness if all sequences are identical
-            if all(seedmatrix[0, :] == 1): return([None] * 8)
             linclusters = np.argmax(seedmatrix, 1)
+            # return emptiness if all sequences map to the same seed
+            if (len(set(linclusters))) == 1: 
+                return([None] * 8)
             pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_tree = True
             
