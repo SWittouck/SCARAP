@@ -185,9 +185,12 @@ def run_pan_pipeline_withchecks(args):
         check_infile(args.species)
 
     logging.info("checking dependencies")
-    check_tool("orthofinder")
-    check_tool("hmmbuild", ["-h"])
+    if args.method in ["O-B", "O-D"]:
+        check_tool("orthofinder")
+    else:
+        check_tool("mmseqs", ["-h"])
     check_tool("mafft", ["--help"])
+    check_tool("hmmbuild", ["-h"])
     check_tool("hmmsearch", ["-h"])
     
     run_pan_pipeline(args)
@@ -214,9 +217,12 @@ def run_core_pipeline_withchecks(args):
         logging.info(f"corrected allfilter value to {str(args.allfilter)}")
 
     logging.info("checking dependencies")
-    check_tool("orthofinder")
-    check_tool("hmmbuild", ["-h"])
+    if args.method in ["O-B", "O-D"]:
+        check_tool("orthofinder")
+    else:
+        check_tool("mmseqs", ["-h"])
     check_tool("mafft", ["--help"])
+    check_tool("hmmbuild", ["-h"])
     check_tool("hmmsearch", ["-h"])
     
     run_core_pipeline(args)

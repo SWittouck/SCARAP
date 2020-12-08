@@ -929,6 +929,9 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
         f"{dout}/profileDB/db"], f"{dout}/logs/result2profile.log",
         skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
+    run_mmseqs(["profile2consensus", f"{dout}/profileDB/db", 
+        f"{dout}/profileDB/db_consensus"], 
+        f"{dout}/logs/profile2consensus.log")
     run_mmseqs(["search", f"{dout}/profileDB/db",
         f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
         f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"],

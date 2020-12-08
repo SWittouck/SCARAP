@@ -12,7 +12,7 @@ Essential dependencies:
     * [ete3](http://etetoolkit.org/) version >= 3.1.1
     * [scipy](https://www.scipy.org/) version >= 1.4.1
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
-* [MMseqs2](https://github.com/soedinglab/MMseqs2) version >= d36dea2
+* [MMseqs2](https://github.com/soedinglab/MMseqs2) version >= 12-113e3
 
 Dependencies for the search module and core pipeline:
 
