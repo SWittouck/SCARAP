@@ -366,16 +366,16 @@ def assess_split(pan1, pan2, family):
     pgo_obs = calc_pgo(genomes1, genomes2)
     pgo_exp = pred_pgo(genomes1, genomes2)
     split = pgo_obs >= pgo_exp and not pgo_exp == 0
-    n1 = len(set(genomes1))
-    n2 = len(set(genomes2))
-    # if split:
-    #     logging.info(f"{family}: {n1}/{n2}; "
-    #         f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
-    #         f"decision = split")
-    # else:
-    #     logging.info(f"{family}: {n1}/{n2}; "
-    #         f"pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
-    #         f"decision = no split")
+    genomes = genomes1 + genomes2
+    cns = pd.Series(genomes).value_counts().tolist()
+    if all([cn > 10 for cn in cns]) and not split:
+        logging.warning(f"{family}: all copy-numbers > 10 but no split")
+        # logging.info(f"subfam1: {pan1.index.tolist()}")
+        # logging.info(f"subfam2: {pan2.index.tolist()}")
+    # n = len(set(genomes))
+    # logging.info(f"{family}: {n} genomes; copy-number {min(cns)} - "
+    #     f"{max(cns)}; pgo_obs = {pgo_obs:.3f}; pgo_exp = {pgo_exp:.3f}; "
+    #     f"split = {split}")
     return(split)
 
 ## family splitting functions

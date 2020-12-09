@@ -178,6 +178,7 @@ def pred_pgo(genomes_fam1, genomes_fam2):
     ncat_exp_fam2 = ncat_exp(len(genomes_fam2), probs)
     pgo = (ncat_exp_fam1 + ncat_exp_fam2 - ncat_exp_tot) / \
         min([ncat_exp_fam1, ncat_exp_fam2])
+    if pgo > 1: pgo = 1
     return(pgo)
     
 def train_cutoffs(hits):
