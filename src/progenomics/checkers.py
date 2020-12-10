@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import sys
 
@@ -15,6 +16,33 @@ def check_tool(tool, arguments = []):
         logging.error(f"{tool} not found")
         sys.exit(1)
     logging.info(f"{tool} found")
+    
+def check_mafft():
+    try:
+        res = subprocess.run(["mafft", "--version"], stderr = subprocess.PIPE)
+    except FileNotFoundError:
+        logging.error(f"MAFFT not found")
+        sys.exit(1)
+    r = re.compile("[0-9]+\\.[0-9]+")
+    version = r.search(res.stderr.decode()).group()
+    logging.info(f"detected MAFFT v{version}")
+    if float(version) < 7.310:
+        logging.warning("progenomics has been tested with MAFFT v7.310 or newer")
+    
+def check_mmseqs():
+    try:
+        res = subprocess.run(["mmseqs", "-h"], stdout = subprocess.PIPE)
+    except FileNotFoundError:
+        logging.error(f"MMseqs2 not found")
+        sys.exit(1)
+    r = re.compile("MMseqs2 Version: ([a-f0-9]{5})")
+    version = r.search(res.stdout.decode()).group(1)
+    releases_tested = {"e1a1c": "11", "113e3": "12"}
+    release = releases_tested.get(version, "unknown")
+    logging.info(f"detected MMseqs2 version {version} (release {release})")
+    if not version in releases_tested.keys():
+        logging.warning("progenomics has only been tested with MMseqs2 "
+            "releases 11 and 12")
 
 def check_infile(infile):
     if not os.path.isfile(infile):

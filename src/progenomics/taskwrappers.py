@@ -21,10 +21,10 @@ def run_pan_withchecks(args):
     if args.method in ["O-B", "O-D"]:
         check_tool("orthofinder")
     elif args.method == "S":
-        check_tool("mmseqs", ["-h"])
+        check_mmseqs()
     else:
-        check_tool("mmseqs", ["-h"])
-        check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
+        check_mmseqs()
+        check_mafft() 
 
     run_pan(args)
 
@@ -43,7 +43,7 @@ def run_build_withchecks(args):
 
     logging.info("checking dependencies")
     check_tool("hmmbuild", ["-h"])
-    check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
+    check_mafft()
 
     run_build(args)
 
@@ -117,7 +117,7 @@ def run_supermatrix_withchecks(args):
         check_infile(args.ffnpaths)
 
     logging.info("checking dependencies")
-    check_tool("mafft", ["--help"]) # --help avoids mafft interactive mode
+    check_mafft() 
     
     run_supermatrix(args)
 
@@ -160,7 +160,7 @@ def run_clust_withchecks(args):
         sys.exit(1)
 
     logging.info("checking dependencies")
-    check_tool("mmseqs", ["-h"])
+    check_mmseqs()
     
     run_clust(args)
 
@@ -188,8 +188,8 @@ def run_pan_pipeline_withchecks(args):
     if args.method in ["O-B", "O-D"]:
         check_tool("orthofinder")
     else:
-        check_tool("mmseqs", ["-h"])
-    check_tool("mafft", ["--help"])
+        check_mmseqs()
+    check_mafft()
     check_tool("hmmbuild", ["-h"])
     check_tool("hmmsearch", ["-h"])
     
@@ -220,8 +220,8 @@ def run_core_pipeline_withchecks(args):
     if args.method in ["O-B", "O-D"]:
         check_tool("orthofinder")
     else:
-        check_tool("mmseqs", ["-h"])
-    check_tool("mafft", ["--help"])
+        check_mmseqs()
+    check_mafft()
     check_tool("hmmbuild", ["-h"])
     check_tool("hmmsearch", ["-h"])
     
