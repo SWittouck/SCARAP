@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
-# This is the main script of progenomics; it only contains the commandline
+# This is the main script of SCARAP; it only contains the commandline
 # interface.
 
 __author__ = "Stijn Wittouck"
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 import argparse
 import logging
@@ -22,7 +22,7 @@ AUTHORS
     Stijn Wittouck (development)
     Sarah Lebeer (supervision)
 USAGE
-    progenomics [-h] <task> <task-specific arguments>
+    scarap [-h] <task> <task-specific arguments>
 TASKS
     pan           --> infer a pangenome from a set of faa files
     build         --> build a profile HMM database for a core/pangenome
@@ -40,7 +40,7 @@ PIPELINES
     core-pipeline --> infer a core genome, build a profile HMM database and
                       train score cutoffs from a set of faa files
 DOCUMENTATION
-    https://github.com/swittouck/progenomics\
+    https://github.com/swittouck/scarap\
 '''
 
     print(message.format(__version__))
@@ -49,7 +49,7 @@ def print_intro():
 
     message = '''\
 
-This is progenomics version {0}
+This is SCARAP version {0}
 '''
 
     print(message.format(__version__))
@@ -250,11 +250,11 @@ if __name__ == "__main__":
         format = '[%(asctime)s] %(levelname)s: %(message)s',
         datefmt = '%d/%m %H:%M:%S'
     )
-    logging.info("welcome to progenomics")
+    logging.info("welcome to SCARAP")
 
     if "cont" in args and args.cont and os.path.exists(args.outfolder):
         logging.info("continuing in existing output folder")
-        check_outfile(os.path.join(args.outfolder, "progenomics.log"))
+        check_outfile(os.path.join(args.outfolder, "SCARAP.log"))
     else:
         logging.info("creating output folder and log file")
         check_outdir(args.outfolder)
@@ -262,7 +262,7 @@ if __name__ == "__main__":
         logging.info(f"output folder '{args.outfolder}' created")
 
     handler = logging.FileHandler(
-        filename = os.path.join(args.outfolder, "progenomics.log"),
+        filename = os.path.join(args.outfolder, "SCARAP.log"),
         mode = 'w'
     )
     handler.setFormatter(logging.getLogger().handlers[0].formatter)
@@ -271,4 +271,4 @@ if __name__ == "__main__":
 
     args.func(args)
 
-    logging.info("progenomics out")
+    logging.info("SCARAP out")

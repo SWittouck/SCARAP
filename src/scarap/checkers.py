@@ -27,7 +27,7 @@ def check_mafft():
     version = r.search(res.stderr.decode()).group()
     logging.info(f"detected MAFFT v{version}")
     if float(version) < 7.310:
-        logging.warning("progenomics has been tested with MAFFT v7.310 or newer")
+        logging.warning("SCARAP has been tested with MAFFT v7.310 or newer")
     
 def check_mmseqs():
     try:
@@ -41,7 +41,7 @@ def check_mmseqs():
     release = releases_tested.get(version, "unknown")
     logging.info(f"detected MMseqs2 version {version} (release {release})")
     if not version in releases_tested.keys():
-        logging.warning("progenomics has only been tested with MMseqs2 "
+        logging.warning("SCARAP has only been tested with MMseqs2 "
             "releases 11 and 12")
 
 def check_infile(infile):

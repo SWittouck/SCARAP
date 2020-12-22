@@ -4,7 +4,7 @@
 
 Remark: all scripts import utils
 
-* progenomics.py:
+* scarap.py:
     * commandline interface
     * imports taskwrappers
 * taskwrappers.py:
