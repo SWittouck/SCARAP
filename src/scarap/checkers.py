@@ -36,7 +36,10 @@ def check_mmseqs():
         logging.error(f"MMseqs2 not found")
         sys.exit(1)
     r = re.compile("MMseqs2 Version: ([a-f0-9]{5})")
-    version = r.search(res.stdout.decode()).group(1)
+    try:
+        version = r.search(res.stdout.decode()).group(1)
+    except AttributeError:
+        version = "unknown"
     releases_tested = {"e1a1c": "11", "113e3": "12"}
     release = releases_tested.get(version, "unknown")
     logging.info(f"detected MMseqs2 version {version} (release {release})")
