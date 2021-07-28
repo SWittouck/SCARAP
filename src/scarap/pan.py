@@ -86,9 +86,11 @@ def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
             f"{dout_tmp}/logs/search.log", threads = threads)
         run_mmseqs(["createtsv", f"{dout_tmp}/seedDB/db", 
             f"{dout_tmp}/sequenceDB/db", f"{dout_tmp}/alignmentDB/db", 
-            f"{dout_tmp}/hits.tsv"], f"{dout_tmp}/logs/createtsv.log")
+            f"{dout_tmp}/hits.tsv", "--full-header"], 
+            f"{dout_tmp}/logs/createtsv.log")
         hits_new = pd.read_csv(f"{dout_tmp}/hits.tsv", sep = "\t", 
             usecols = [1, 3], names = ["gene", "identity"])
+        hits_new["gene"] = hits_new["gene"].apply(lambda x: x.split(" ")[0])
         
         # put the identity values in the seed matrix
         for index, row in hits_new.iterrows():
@@ -470,7 +472,7 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
         run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
-            threads, ["--amino"])
+            threads, ["--amino", "--anysymbol"])
         aln = read_fasta(f"{dio_tmp}/repseqs.aln")
         idmat = identity_matrix(aln)
         distmat = distmat_from_idmat(idmat)
@@ -958,19 +960,23 @@ def infer_superfamilies(faafins, dout, threads):
 
     # create the pangenome file 
     logging.info("compiling pangenome file with superfamilies")
+    # why --full-header option? --> to avoid MMseqs2 extracting the
+    # UniqueIdentifier part of sequences in UniProtKB format 
+    # (see https://www.uniprot.org/help/fasta-headers)
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
-        f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv"], 
+        f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv", "--full-header"], 
         f"{dout}/logs/createtsv_preclusters.log")
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
-        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv"],
+        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv", "--full-header"],
         f"{dout}/logs/createtsv_clusters.log")
     preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
         names = ["precluster", "gene"])
+    preclustertable = preclustertable.applymap(lambda x: x.split(" ")[0])
     clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t",
         names = ["cluster", "precluster"])
+    clustertable = clustertable.applymap(lambda x: x.split(" ")[0])
     genes_ogs = pd.merge(preclustertable, clustertable, on = "precluster")
     genes_ogs = genes_ogs.rename(columns = {"cluster": "orthogroup"})
-    # genes_ogs = preclustertable.rename(columns = {"precluster": "orthogroup"}) # tmp!!
     genes_genomes = extract_genes(faafins)
     genes = pd.merge(genes_genomes, genes_ogs, on = "gene")
     genes = genes.drop(["precluster"], axis = 1)
