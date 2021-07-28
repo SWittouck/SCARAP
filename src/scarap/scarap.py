@@ -69,7 +69,7 @@ def parse_arguments():
     parser_pan_parent.add_argument("faapaths",
         help = "input file with paths to faa files of genomes")
     parser_pan_parent.add_argument("-d", "--method", default = "FH",
-        choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
+        choices = ["H", "FH", "FT", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
         help = "pangenome inference method [default: FH]")
     parser_pan_parent.add_argument("outfolder",
         help = "output folder for pangenome file")

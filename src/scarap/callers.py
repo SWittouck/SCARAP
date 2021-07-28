@@ -12,8 +12,8 @@ from utils import *
 
 def run_iqtree(fin_aln, dout_tree, threads, options):
     makedirs_smart(dout_tree)
-    result = subprocess.call(["iqtree", "-te", "BIONJ", "-fixbr", "-s", 
-        fin_aln, "-pre", f"{dout_tree}/tree", "-nt", str(threads)] + options, 
+    result = subprocess.call(["iqtree", "-s", fin_aln, 
+        "-pre", f"{dout_tree}/tree", "-nt", str(threads)] + options, 
         stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
     if result != 0:
         logging.error("something went wrong with iqtree; see log file "

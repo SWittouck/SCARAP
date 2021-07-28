@@ -152,29 +152,39 @@ def hclusts(distmat, n_clusters):
 
 ## helpers - tree inference module (T)
     
-def split_pan(pan, tree, outgr):
+def split_pan(pan, tree):
     """Split pan into pan1 and pan2 based on a tree and an outgroup node. 
     
     Args:
         pan (DataFrame): A gene table with at least the columns reprf and 
             orthogroup.
         tree: An ete3 tree (= the root node of a tree)
-        outgr: A node in the tree
         
     Returns:
-        [pan1, pan2]
+        [pan1, pan2, tree1, tree2]
     """
-    reps_subfam1 = outgr.get_leaf_names()
-    parent = outgr.up
-    outgr.detach()
-    reps_subfam2 = tree.get_leaf_names()
-    parent.add_child(outgr) # re-add the outgroup
+    
+    # midpoint root the tree
+    midoutgr = tree.get_midpoint_outgroup()
+    if midoutgr != tree:
+        tree.set_outgroup(midoutgr) 
+        
+    # split tree at root
+    tree1 = tree.children[0].copy()
+    tree2 = tree.children[1].copy()
+    
+    # split pan
+    reps_subfam1 = tree1.get_leaf_names()
+    reps_subfam2 = tree2.get_leaf_names()
     pan1 = pan[pan["rep"].isin(reps_subfam1)].copy()
     pan2 = pan[pan["rep"].isin(reps_subfam2)].copy()
+    
+    # set subfamily names
     family = pan.orthogroup.tolist()[0]
     pan1.loc[:, "orthogroup"] = family + "_1"
     pan2.loc[:, "orthogroup"] = family + "_2"
-    return([pan1, pan2])
+
+    return([pan1, pan2, tree1, tree2])
 
 def lowest_cn_roots(tree, pan):
     """Determine the set of lowest copy-number roots.
@@ -414,7 +424,7 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     write_fasta(sequences, f"{dio_tmp}/seqs.fasta")
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
     run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
-        ["-m", "LG"])
+        ["-m", "LG+F+G4"])
     tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     midoutgr = tree.get_midpoint_outgroup()
     genes_subfam1 = midoutgr.get_leaf_names()
@@ -497,15 +507,13 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
     seedmatrix, threads, dio_tmp):
     """Splits a family in two subfamilies.
     
-    !! not finished and not tested
-    
     See split_family_recursive_FT.
     """
     
     update_tree = False
     # if reps not necessary, for the first time: ...
     if not ficlin or len(pan.index) <= max_reps:
-        if tree is None or tree.get_count() != len(pan.index):
+        if tree is None or len(tree) != len(pan.index):
             pan["rep"] = pan.index
             update_tree = True
     # if parent reps are too few to re-use: ...
@@ -525,7 +533,7 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
     if update_tree:
         repseqs = [s for s in sequences if s.id in pan["rep"].unique()]
         reps = [s.id for s in repseqs]
-        logging.info(f"aligning {len(reps)} sequences")
+        # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
         run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
             threads, ["--amino"])
@@ -534,11 +542,15 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     
     # split pan based on midpoint root
-    # TO ADAPT!! we also need: tree1, tree2, seedmatrix1 and seedmatrix2
-    midoutgr = tree.get_midpoint_outgroup()
-    pan1, pan2 = split_pan(pan, tree, midoutgr)
+    pan1, pan2, tree1, tree2 = split_pan(pan, tree)
     sequences1 = [s for s in sequences if s.id in pan1.index]
     sequences2 = [s for s in sequences if s.id in pan2.index]
+    if ficlin:
+        seedmatrix1 = seedmatrix[pan.index.isin(pan1.index).tolist(), :]
+        seedmatrix2 = seedmatrix[pan.index.isin(pan2.index).tolist(), :]
+    else: 
+        seedmatrix1 = None
+        seedmatrix2 = None
     
     # # split pan based on minimal copy number root
     # cnoutgr = correct_root(midoutgr, tree, pan)
@@ -650,7 +662,7 @@ def split_family_recursive_H_nl(pan, sequences, threads, dio_tmp):
     family = pan.orthogroup.tolist()[0]
 
     if not split_possible(pan.genome.tolist()):
-        logging.info(f"{family}: {len(pan.index)} genes - split not an option")
+        # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
 
     pan1, pan2 = split_family_H_nl(pan, sequences, threads, dio_tmp)
@@ -685,7 +697,7 @@ def split_family_recursive_T_nl(pan, sequences, threads, dio_tmp):
     family = pan.orthogroup.tolist()[0]
     
     if not split_possible(pan.genome.tolist()):
-        logging.info(f"{family}: {len(pan.index)} genes - split not an option")
+        # logging.info(f"{family}: {len(pan.index)} genes - split not an option")
         return(pan)
     
     pan1, pan2 = split_family_T_nl(pan, sequences, threads, dio_tmp)
@@ -720,6 +732,7 @@ def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps,
         finclin (bool): Should ficlin be used to pick representatives?
         min_reps (int): The minimum number of representatives to use. 
         max_reps (int): The maximum number of representatives to use. 
+        seedmatrix (np.array): An array of identity values of genes to seeds.
         threads (int): The number of threads to use.
         dio_tmp (str): Folder to store temporary files.
         
@@ -764,6 +777,7 @@ def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps,
         finclin (bool): Should ficlin be used to pick representatives?
         min_reps (int): The minimum number of representatives to use. 
         max_reps (int): The maximum number of representatives to use. 
+        seedmatrix (np.array): An array of identity values of genes to seeds.
         threads (int): The number of threads to use.
         dio_tmp (str): Folder to store temporary files.
         
