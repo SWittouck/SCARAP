@@ -26,7 +26,7 @@ def run_pan_nonhier(args):
         logging.info("existing pangenome detected - moving on")
         return()
     
-    faafins = read_lines(args.faapaths)
+    faafins = read_fastapaths(args.faapaths)
     
     if args.method in ["O-B", "O-D"]:
 
@@ -65,7 +65,7 @@ def run_pan_hier(args):
         speciesdict.setdefault(row.species, []).append(row.genome)
 
     logging.info("processing faapaths")
-    faafins = read_lines(args.faapaths)
+    faafins = read_fastapaths(args.faapaths)
     genomedict = {}
     for faafin in faafins:
         genome = filename_from_path(faafin)
@@ -132,7 +132,7 @@ def run_build(args):
 
     logging.info("gathering sequences of orthogroups")
     pangenome = read_genes(args.pangenome)
-    faafins = read_lines(args.faapaths)
+    faafins = read_fastapaths(args.faapaths)
     gather_orthogroup_sequences(pangenome, faafins, orthogroupsdio,
         args.min_genomes)
     logging.info(f"gathered sequences for {len(os.listdir(orthogroupsdio))} "
@@ -162,7 +162,7 @@ def run_search(args):
     cutoffsfio = os.path.join(args.db, "orthogroups.tsv")
 
     logging.info("performing hmmsearch")
-    queryfins = read_lines(args.qpaths)
+    queryfins = read_fastapaths(args.qpaths)
     domtblfio = os.path.join(args.outfolder, "hmmer_domtbl.tmp")
     if os.path.isfile(domtblfio):
         logging.info("existing hmmer domtbl detected - skipping hmmsearch")
@@ -262,7 +262,7 @@ def run_supermatrix(args):
     else:
     
         logging.info("gathering amino acid sequences of orthogroups")
-        faa_fins = read_lines(args.faapaths)
+        faa_fins = read_fastapaths(args.faapaths)
         os.makedirs(seqs_aas_dio, exist_ok = True)
         gather_orthogroup_sequences(coregenome, faa_fins, seqs_aas_dio)
         
@@ -292,7 +292,7 @@ def run_supermatrix(args):
         else:
     
             logging.info("gathering nucleotide sequences of orthogroups")
-            ffn_fins = read_lines(args.ffnpaths)
+            ffn_fins = read_fastapaths(args.ffnpaths)
             os.makedirs(seqs_nucs_dio, exist_ok = True)
             gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
             
@@ -363,7 +363,7 @@ def run_clust(args):
     else:
     
         logging.info("gathering sequences of orthogroups")
-        fins_faas = read_lines(args.fastapaths)
+        fins_faas = read_fastapaths(args.fastapaths)
         gather_orthogroup_sequences(core, fins_faas, dio_seqs)
     
     logging.info("creating database for alignments")
@@ -510,6 +510,6 @@ def run_fetch(args):
         f"{len(genomes)} genomes")
         
     logging.info("gathering sequences of orthogroups")
-    fins_fastas = read_lines(args.fastapaths)
+    fins_fastas = read_fastapaths(args.fastapaths)
     gather_orthogroup_sequences(genes, fins_fastas, dout_seqs)
     

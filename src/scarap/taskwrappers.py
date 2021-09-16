@@ -12,7 +12,6 @@ def run_pan_withchecks(args):
     logging.info("welcome to the pan task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
     check_fastas(args.faapaths)
     if not args.species is None:
         check_infile(args.species)
@@ -33,9 +32,10 @@ def run_build_withchecks(args):
     logging.info("welcome to the build task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
+    check_fastas(args.faapaths)
     check_infile(args.pangenome)
-    n_genomes = sum([1 for line in open(args.faapaths, "r")])
+    faapaths = read_fastapaths(args.faapaths)
+    n_genomes = len(faapaths)
     if args.min_genomes > n_genomes:
         args.min_genomes = n_genomes
         logging.info(f"min_genomes reduced to {args.min_genomes}, since that's "
@@ -52,7 +52,6 @@ def run_search_withchecks(args):
     logging.info("welcome to the search task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.qpaths)
     check_fastas(args.qpaths)
     check_db(args.db)
     if args.trainstrategy is None:
@@ -111,10 +110,10 @@ def run_supermatrix_withchecks(args):
     logging.info("welcome to the supermatrix task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
+    check_fastas(args.faapaths)
     check_infile(args.coregenome)
     if not args.ffnpaths is None:
-        check_infile(args.ffnpaths)
+        check_fastas(args.ffnpaths)
 
     logging.info("checking dependencies")
     check_mafft() 
@@ -126,8 +125,9 @@ def run_clust_withchecks(args):
     logging.info("welcome to the clust task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.fastapaths)
-    n_genomes = sum([1 for line in open(args.fastapaths, "r")])
+    check_fastas(args.fastapaths)
+    fastapaths = read_fastapaths(args.fastapaths)
+    n_genomes = len(fastapaths)
     if args.max_clusters > n_genomes:
         args.max_clusters = n_genomes
         logging.info(f"max_clusters reduced to {args.max_clusters}, since "
@@ -169,7 +169,7 @@ def run_fetch_withchecks(args):
     logging.info("welcome to the fetch task")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.fastapaths)
+    check_fastas(args.fastapaths)
     check_infile(args.genes)
     
     run_fetch(args)
@@ -179,7 +179,6 @@ def run_pan_pipeline_withchecks(args):
     logging.info("welcome to the pan pipeline")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
     check_fastas(args.faapaths)
     if not args.species is None:
         check_infile(args.species)
@@ -200,7 +199,6 @@ def run_core_pipeline_withchecks(args):
     logging.info("welcome to the core pipeline")
 
     logging.info("checking arguments other than output folder")
-    check_infile(args.faapaths)
     check_fastas(args.faapaths)
     n_genomes = sum([1 for line in open(args.faapaths, "r")])
     if args.seeds > n_genomes:

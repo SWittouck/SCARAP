@@ -7,6 +7,21 @@ import pandas as pd
 from Bio import SeqIO
 
 from utils import *
+        
+def read_fastapaths(path):
+    # when path is a file
+    if os.path.isfile(path):
+        # store fastapaths in list
+        fastapaths = [fp.strip() for fp in open(path)]
+    # when path is a folder
+    elif os.path.isdir(path):
+        # store fastapaths in list
+        fastapaths = [os.path.join(path, file) for file in os.listdir(path)]
+        fastapaths = [fp for fp in fastapaths if os.path.isfile(fp)]
+        extensions = ("fasta", "fa", "faa", "ffn", "fasta.gz", "fa.gz", 
+            "faa.gz", "ffn.gz")
+        fastapaths = [fp for fp in fastapaths if fp.endswith(extensions)]
+    return(fastapaths)
 
 def read_mmseqs_table(fin):
     names = ["query", "target", "pident", "alnlen", "mismatch", "gapopen", 

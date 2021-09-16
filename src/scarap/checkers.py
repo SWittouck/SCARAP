@@ -93,18 +93,36 @@ def check_fasta(path):
             logging.error("one or more fasta files are not in fasta format")
             sys.exit(1)
 
+# works for dir with fastas or file with fastapaths
 def check_fastas(path):
-    if os.stat(path).st_size == 0:
-        logging.error("fastapaths file is empty")
+    # when path is a file
+    if os.path.isfile(path):
+        # error if file with fastapaths is empty
+        if os.stat(path).st_size == 0:
+            logging.error("fastapaths file is empty")
+            sys.exit(1)
+        # store fastapaths in list
+        fastapaths = [fp.strip() for fp in open(path)]
+        # error if fasta filenames not unique
+        filenames = [filename_from_path(fp) for fp in fastapaths]
+        if not len(filenames) == len(set(filenames)):
+            logging.error("names of fasta files are not unique")
+            sys.exit(1)
+    # when path is a folder
+    elif os.path.isdir(path):
+        # store fastapaths in list
+        fastapaths = [os.path.join(path, file) for file in os.listdir(path)]
+        fastapaths = [fp for fp in fastapaths if os.path.isfile(fp)]
+        extensions = ("fasta", "fa", "faa", "ffn", "fasta.gz", "fa.gz", 
+            "faa.gz", "ffn.gz")
+        fastapaths = [fp for fp in fastapaths if fp.endswith(extensions)]
+    # error when path doesn't exist
+    else: 
+        logging.error(f"input file/folder '{path}' not found")
         sys.exit(1)
-    filenames = []
-    for fastapath in open(path):
-        fastapath = fastapath.strip()
-        filenames.append(filename_from_path(fastapath))
+    # check individual fasta files
+    for fastapath in fastapaths:
         check_fasta(fastapath)
-    if not len(filenames) == len(set(filenames)):
-        logging.error("names of fasta files are not unique")
-        sys.exit(1)
 
 def check_db(path):
     exts = [".h3f", ".h3i", ".h3m", ".h3p"]

@@ -32,7 +32,7 @@ def run_core_pipeline(args):
     logging.info("selecting random seed genomes")
     seedsdio = os.path.join(args.outfolder, "seeds")
     os.makedirs(seedsdio, exist_ok = True)
-    faapaths = read_lines(args.faapaths)
+    faapaths = read_fastapaths(args.faapaths)
     seedpathsfio = os.path.join(seedsdio, "seedpaths.txt")
     if not os.path.isfile(os.path.join(seedpathsfio)):
         seedpaths = sample(faapaths, args.seeds)

@@ -67,7 +67,7 @@ def parse_arguments():
     # parent parser for the pan and pan-pipeline tasks
     parser_pan_parent = argparse.ArgumentParser(add_help = False)
     parser_pan_parent.add_argument("faapaths",
-        help = "input file with paths to faa files of genomes")
+        help = "file with paths to or folder with faa files of genomes")
     parser_pan_parent.add_argument("-d", "--method", default = "FH",
         choices = ["H", "FH", "FT", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
         help = "pangenome inference method [default: FH]")
@@ -87,7 +87,7 @@ def parse_arguments():
     parser_build = subparsers.add_parser('build')
     parser_build.set_defaults(func = run_build_withchecks)
     parser_build.add_argument("faapaths",
-        help = "input file with paths to faa files of genomes")
+        help = "file with paths to or folder with faa files of genomes")
     parser_build.add_argument("pangenome",
         help = "input file with pangenome")
     parser_build.add_argument("outfolder",
@@ -103,8 +103,8 @@ def parse_arguments():
     parser_search = subparsers.add_parser('search')
     parser_search.set_defaults(func = run_search_withchecks)
     parser_search.add_argument("qpaths",
-        help = "input file with paths to files with amino acid sequences of "
-            "query genes")
+        help = "file with paths to or folder with files containing amino acid "
+            "sequences of query genes")
     parser_search.add_argument("db",
         help = "input folder with hmm database")
     parser_search.add_argument("outfolder",
@@ -157,24 +157,24 @@ def parse_arguments():
     parser_supermatrix = subparsers.add_parser('supermatrix')
     parser_supermatrix.set_defaults(func = run_supermatrix_withchecks)
     parser_supermatrix.add_argument("faapaths",
-        help = "input file with paths to faa files of genomes")
+        help = "file with paths to or folder with faa files of genomes")
     parser_supermatrix.add_argument("coregenome",
-        help = "input file with core genome")
+        help = "file with core genome")
     parser_supermatrix.add_argument("outfolder",
         help = "output file for supermatrix fasta file based on core genome")
     parser_supermatrix.add_argument("-n", "--ffnpaths",
-        help = "input file with paths to ffn files of genomes; if given, "
-            "a nucleotide supermatrix will be constructed in addition to the "
-            "amino acid suprmatrix")
+        help = "file with paths to or folder with ffn files of genomes; if "
+            "given, a nucleotide supermatrix will be constructed in addition "
+            "to the amino acid suprmatrix")
     parser_supermatrix.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
 
     parser_clust = subparsers.add_parser('clust')
     parser_clust.set_defaults(func = run_clust_withchecks)
     parser_clust.add_argument("fastapaths",
-        help = "input file with paths to ffn/faa files of genomes")
+        help = "file with paths to or folder with ffn/faa files of genomes")
     parser_clust.add_argument("coregenome",
-        help = "input file with core genome")
+        help = "file with core genome")
     parser_clust.add_argument("outfolder",
         help = "output folder for clustering")
     parser_clust.add_argument("-m", "--max_clusters", default = 0, type = int,
@@ -195,9 +195,9 @@ def parse_arguments():
     parser_fetch = subparsers.add_parser('fetch')
     parser_fetch.set_defaults(func = run_fetch_withchecks)
     parser_fetch.add_argument("fastapaths",
-        help = "input file with paths to ffn/faa files of genomes")
+        help = "file with paths to or folder with ffn/faa files of genomes")
     parser_fetch.add_argument("genes",
-        help = "input file with genes (columns gene, genome, orthogroup)")
+        help = "file with genes (columns gene, genome, orthogroup)")
     parser_fetch.add_argument("outfolder",
         help = "output folder for fasta files")
     parser_fetch.add_argument("-c", "--cont", action = "store_true",
@@ -210,7 +210,7 @@ def parse_arguments():
     parser_core_pipeline = subparsers.add_parser('core-pipeline')
     parser_core_pipeline.set_defaults(func = run_core_pipeline_withchecks)
     parser_core_pipeline.add_argument("faapaths",
-        help = "input file with paths to faa files of genomes")
+        help = "file with paths to or folder with faa files of genomes")
     parser_core_pipeline.add_argument("outfolder",
         help = "output folder")
     parser_core_pipeline.add_argument("-d", "--method", default = "FH",
