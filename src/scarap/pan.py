@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import os
 import shutil
+import sys
 
 from Bio import AlignIO, Align
 from copy import copy
@@ -975,10 +976,8 @@ def infer_superfamilies(faafins, dout, threads):
     clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t",
         names = ["cluster", "precluster"])
     clustertable = clustertable.applymap(lambda x: x.split(" ")[0])
-    genes_ogs = pd.merge(preclustertable, clustertable, on = "precluster")
-    genes_ogs = genes_ogs.rename(columns = {"cluster": "orthogroup"})
-    genes_genomes = extract_genes(faafins)
-    genes = pd.merge(genes_genomes, genes_ogs, on = "gene")
+    genes = pd.merge(preclustertable, clustertable, on = "precluster")
+    genes = genes.rename(columns = {"cluster": "orthogroup"})
     genes = genes.drop(["precluster"], axis = 1)
     
     # rename the superfamilies 
@@ -988,7 +987,7 @@ def infer_superfamilies(faafins, dout, threads):
     genes["orthogroup"] = [namedict[f] for f in genes["orthogroup"]]
     
     # write pangenome file
-    write_tsv(genes, f"{dout}/pangenome.tsv")
+    write_tsv(genes, f"{dout}/genes.tsv")
 
 def infer_pangenome(faafins, splitstrategy, dout, threads):
     """Infers the pangenome of a set of genomes and writes it to disk. 
@@ -1005,14 +1004,20 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     
     logging.info(f"{len(faafins)} genomes were supplied")
     
+    logging.info("constructing gene table")
+    genes = extract_genes(faafins)
+    logging.info("checking if gene names are unique")
+    if not genes.gene.is_unique:
+        logging.error("gene names are not unique") 
+        sys.exit(1)
+    
     if (len(faafins)) == 1:
       
         logging.info("only one genome supplied - each gene will be its own "
             "orthogroup")
-            
-        logging.info("reading gene names")
-        pangenome = extract_genes(faafins)
+
         logging.info("assiging names to gene families")
+        pangenome = genes
         pangenome["orthogroup"] = [f"F{c}" for c in \
             padded_counts(len(pangenome.index))]
     
@@ -1024,12 +1029,14 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
     infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
+    genes_superfams = pd.read_csv(f"{dout}/superfamilies/genes.tsv", 
+        sep = "\t", names = ["gene", "orthogroup"])
+    pangenome = pd.merge(genes, genes_superfams, on = "gene")
     
     if splitstrategy == "S":
       
         logging.info("writing pangenome file")
-        shutil.copyfile(f"{dout}/superfamilies/pangenome.tsv", 
-            f"{dout}/pangenome.tsv")
+        write_tsv(pangenome, f"{dout}/pangenome.tsv")
         logging.info("removing temporary folders")
         shutil.rmtree(f"{dout}/superfamilies")
         return()
@@ -1038,7 +1045,6 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
 
     logging.info("gathering sequences of superfamilies")
     os.makedirs(f"{dout}/superfamilies/superfamilies", exist_ok = True)
-    pangenome = read_genes(f"{dout}/superfamilies/pangenome.tsv")
     dio_fastas = f"{dout}/superfamilies/fastas"
     gather_orthogroup_sequences(pangenome, faafins, dio_fastas)
 
