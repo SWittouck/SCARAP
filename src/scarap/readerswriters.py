@@ -100,7 +100,7 @@ def extract_genes(fins_genomes):
         genome = filename_from_path(fin_genome)
         with open_smart(fin_genome) as hin:
             fasta = hin.read()
-        genes_genome = re.compile(">([^\n ]+)").findall(fasta)
+        genes_genome = re.compile(">([^\n\t ]+)").findall(fasta)
         genes_genome = pd.DataFrame({"gene": genes_genome})
         genes_genome.loc[:, "genome"] = genome
         genes = genes.append(genes_genome)
