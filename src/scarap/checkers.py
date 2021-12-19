@@ -35,17 +35,17 @@ def check_mmseqs():
     except FileNotFoundError:
         logging.error(f"MMseqs2 not found")
         sys.exit(1)
-    r = re.compile("MMseqs2 Version: ([a-f0-9]{5})")
+    r = re.compile("MMseqs2 Version: ([a-f0-9.]{5})")
     try:
         version = r.search(res.stdout.decode()).group(1)
     except AttributeError:
         version = "unknown"
-    releases_tested = {"e1a1c": "11", "113e3": "12"}
+    releases_tested = {"e1a1c": "11", "113e3": "12", "45111": "13"}
     release = releases_tested.get(version, "unknown")
     logging.info(f"detected MMseqs2 version {version} (release {release})")
     if not version in releases_tested.keys():
         logging.warning("SCARAP has only been tested with MMseqs2 "
-            "releases 11 and 12")
+            "releases 11, 12 and 13")
 
 def check_infile(infile):
     if not os.path.isfile(infile):
