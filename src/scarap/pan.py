@@ -1048,7 +1048,7 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     dio_fastas = f"{dout}/superfamilies/fastas"
     gather_orthogroup_sequences(pangenome, faafins, dio_fastas)
 
-    logging.info("splitting superfamilies")
+    logging.info("counting splitable superfamilies")
     os.makedirs(f"{dout}/tmp", exist_ok = True)
     pangenome = pangenome.groupby("orthogroup")
     orthogroups = pangenome.aggregate({"genome": split_possible})
@@ -1057,6 +1057,18 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     pangenome_splitable.sort(key = lambda pan: len(pan.index), reverse = True)
     n = len(pangenome_splitable)
     logging.info(f"found {n} splitable superfamilies")
+    
+    if n == 0:
+  
+        logging.info("writing pangenome file")
+        pangenome = pangenome.obj # to "ungroup"
+        write_tsv(pangenome, f"{dout}/pangenome.tsv")
+        logging.info("removing temporary folders")
+        shutil.rmtree(f"{dout}/superfamilies")
+        shutil.rmtree(f"{dout}/tmp")
+        return()
+    
+    logging.info("splitting superfamilies")
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
         pangenome_splitable = executor.map(split_superfamily, 
             pangenome_splitable, [splitstrategy] * n, [dio_fastas] * n, 
