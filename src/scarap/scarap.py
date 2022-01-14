@@ -216,16 +216,20 @@ def parse_arguments():
     parser_core_pipeline.add_argument("-d", "--method", default = "FH",
         choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
         help = "pangenome inference method [default: FH]")
-    parser_core_pipeline.add_argument("-e", "--seeds", default = 50, type = int,
-        help = "number of seed genomes to use [default 50]")
-    parser_core_pipeline.add_argument("-f", "--seedfilter", default = 40,
+    parser_core_pipeline.add_argument("-e", "--seeds", default = 100, type = int,
+        help = "number of seed genomes to use [default 100]")
+    parser_core_pipeline.add_argument("-f", "--seedfilter", default = 95,
         type = int,
-        help = "minimum number of seed genomes where a candidate core gene "
-            "should be present [default 40]")
-    parser_core_pipeline.add_argument("-i", "--allfilter", default = 0.95,
+        help = "minimum number of seed genomes where a core gene should be "
+            "present (in any copy number) [default 95]")
+    parser_core_pipeline.add_argument("-i", "--allfilter", default = 0,
         type = float,
         help = "minimum percentage of all genomes where a core gene should be "
-            "present [default 0.95]")
+            "present in a single copy [default 0]")
+    parser_core_pipeline.add_argument("-m", "--max_genes", default = 0,
+        type = int,
+        help = "maximum number of core genes to retrieve (0 = no maximum) " 
+            "[default 0]")
     parser_core_pipeline.add_argument("-t", "--threads", default = 8,
         type = int, help = "number of threads to use [default 8]")
     parser_core_pipeline.add_argument("-c", "--cont", action = "store_true",

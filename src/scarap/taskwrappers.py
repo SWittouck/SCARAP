@@ -202,10 +202,11 @@ def run_core_pipeline_withchecks(args):
     check_fastas(args.faapaths)
     n_genomes = sum([1 for line in open(args.faapaths, "r")])
     if args.seeds > n_genomes:
+        seedfilter_new = n_genomes * args.seedfilter // args.seeds # result is still integer
         args.seeds = n_genomes
         logging.info(f"number of seeds reduced to {args.seeds}, since that's "
             "the number of genomes")
-        args.seedfilter = n_genomes * 8 // 10 # result is still integer
+        args.seedfilter = seedfilter_new
         logging.info(f"seedfilter set to {args.seedfilter}")
     if args.allfilter > 100:
         logging.error("allfilter should be between 0 and 1")

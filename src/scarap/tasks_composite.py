@@ -44,13 +44,28 @@ def run_core_pipeline(args):
     args_pan = Namespace(faapaths = seedpathsfio, outfolder = seedsdio,
         method = args.method, threads = args.threads)
     run_pan(args_pan)
+    
+    logging.info("STEP 2a - selecting candidate core genes")
+    seedspanfio = os.path.join(seedsdio, "pangenome.tsv")
+    seedspan = read_genes(seedspanfio)
+    seedspanfams = checkgroups(seedspan)
+    tokeep = seedspanfams.occurrence_singlecopy >= args.seedfilter / args.seeds
+    seedscorefams = seedspanfams[tokeep]
+    logging.info(f"{len(seedscorefams.index)} candidate core genes found")
+    if (args.max_genes > 0):
+        seedscorefams = seedscorefams\
+            .sort_values("occurrence_singlecopy", ascending = False)\
+            .head(args.max_genes)
+    seedscore = filter_groups(seedspan, seedscorefams.orthogroup)
+    logging.info(f"{len(seedscorefams.index)} candidate core genes selected")
+    seedscorefio = os.path.join(seedsdio, "coregenome.tsv")
+    write_tsv(seedscore, seedscorefio)
 
-    logging.info("STEP 2 - building database of candidate core genes")
+    logging.info("STEP 2b - building database of candidate core genes")
     candsdio = os.path.join(args.outfolder, "cands")
     os.makedirs(candsdio, exist_ok = True)
-    seedspanfio = os.path.join(seedsdio, "pangenome.tsv")
-    args_build = Namespace(faapaths = seedpathsfio, pangenome = seedspanfio,
-        outfolder = candsdio, min_genomes = args.seedfilter)
+    args_build = Namespace(faapaths = seedpathsfio, pangenome = seedscorefio,
+        outfolder = candsdio, min_genomes = 0)
     run_build(args_build)
 
     logging.info("STEP 3 - searching candidate core orthogroups in all genomes")
@@ -61,8 +76,8 @@ def run_core_pipeline(args):
     logging.info("STEP 4 - selecting core orthogroups from candidates")
     candcoregenome = read_genes(os.path.join(candsdio, "genes.tsv"))
     candcorefams = checkgroups(candcoregenome)
-    corefams = candcorefams[candcorefams.occurrence >= args.allfilter]\
-        .orthogroup
+    tokeep = candcorefams.occurrence_singlecopy >= args.allfilter
+    corefams = candcorefams[tokeep].orthogroup
     coregenome = filter_groups(candcoregenome, corefams)
     write_tsv(corefams, os.path.join(args.outfolder, "core_orthogroups.txt"))
     write_tsv(coregenome, os.path.join(args.outfolder, "coregenome.tsv"))
