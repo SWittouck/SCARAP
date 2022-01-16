@@ -200,7 +200,8 @@ def run_core_pipeline_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_fastas(args.faapaths)
-    n_genomes = sum([1 for line in open(args.faapaths, "r")])
+    fastapaths = read_fastapaths(args.faapaths)
+    n_genomes = len(fastapaths)
     if args.seeds > n_genomes:
         seedfilter_new = n_genomes * args.seedfilter // args.seeds # result is still integer
         args.seeds = n_genomes
