@@ -473,8 +473,8 @@ def run_sample(args):
             break
             
     logging.info("writing seeds.txt")
-    with open(fout_seeds, "w") as hout_seeds:
-        hout_seeds.write("\n".join([genomes[s] for s in seeds]))
+    with open(fout_seeds, "a") as hout_seeds:
+        for s in seeds: hout_seeds.write(genomes[s] + "\n")
             
     logging.info("writing identities.tsv")
     id_df = pd.DataFrame(id_m)
