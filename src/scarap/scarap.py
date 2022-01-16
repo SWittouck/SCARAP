@@ -32,13 +32,12 @@ TASKS
     filter        --> filter the genomes/orthogroups in a pangenome
     supermatrix   --> construct a concatenated core orthogroup alignment from a
                       core genome
-    clust         --> cluster genomes in n clusters given their core genes
+    sample        --> sample a subset of representative genomes
     fetch         --> fetch sequences and store in fasta per orthogroup
 PIPELINES
     pan-pipeline  --> infer a pangenome, build a profile HMM database and train
                       score cutoffs from a set of faa files
-    core-pipeline --> infer a core genome, build a profile HMM database and
-                      train score cutoffs from a set of faa files
+    core-pipeline --> infer a core genome from a set of faa files
 DOCUMENTATION
     https://github.com/swittouck/scarap\
 '''
@@ -169,27 +168,27 @@ def parse_arguments():
     parser_supermatrix.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
 
-    parser_clust = subparsers.add_parser('clust')
-    parser_clust.set_defaults(func = run_clust_withchecks)
-    parser_clust.add_argument("fastapaths",
+    parser_sample = subparsers.add_parser('sample')
+    parser_sample.set_defaults(func = run_sample_withchecks)
+    parser_sample.add_argument("fastapaths",
         help = "file with paths to or folder with ffn/faa files of genomes")
-    parser_clust.add_argument("coregenome",
+    parser_sample.add_argument("coregenome",
         help = "file with core genome")
-    parser_clust.add_argument("outfolder",
-        help = "output folder for clustering")
-    parser_clust.add_argument("-m", "--max_clusters", default = 0, type = int,
-        help = "maximum number of clusters; 0 means no maximum [default 0]")
-    parser_clust.add_argument("-i", "--identity", default = 1, 
+    parser_sample.add_argument("outfolder",
+        help = "output folder")
+    parser_sample.add_argument("-m", "--max_genomes", default = 0, type = int,
+        help = "maximum number of genomes to sample (0 = no maximum) "
+            "[default 0]")
+    parser_sample.add_argument("-i", "--identity", default = 1, 
         type = float,
-        help = "maximum identity of sequences to the seeds of other clusters "
-            "[default 1]")
-    parser_clust.add_argument("-x", "--exact", action = "store_true",
+        help = "maximum sequence identity between sampled genomes [default 1]")
+    parser_sample.add_argument("-x", "--exact", action = "store_true",
         help = "perform full alignments [default False]")
-    parser_clust.add_argument("-t", "--threads", default = 8, type = int,
+    parser_sample.add_argument("-t", "--threads", default = 8, type = int,
         help = "number of threads to use [default 8]")
-    parser_clust.add_argument("-c", "--cont", action = "store_true",
+    parser_sample.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
-    parser_clust.add_argument("-d", "--method", default = "mean",
+    parser_sample.add_argument("-d", "--method", default = "mean",
         help = "genome-genome comparison method [default: mean]")
 
     parser_fetch = subparsers.add_parser('fetch')

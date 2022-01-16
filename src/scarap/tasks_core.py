@@ -319,7 +319,7 @@ def run_supermatrix(args):
     except FileNotFoundError:
         pass
 
-def run_clust(args):
+def run_sample(args):
   
     if "exact" in args and args.exact:
         ali_mode = 3
@@ -337,8 +337,9 @@ def run_clust(args):
     fout_clusters = os.path.join(args.outfolder, "clusters.tsv")
     fout_seeds = os.path.join(args.outfolder, "seeds.txt")
     fout_identities = os.path.join(args.outfolder, "identities.tsv")
+    
     if os.path.isfile(fout_clusters):
-        logging.info("existing cluster file detected - moving on")
+        logging.info("existing results detected - moving on")
         return()
 
     logging.info("reading core genome") 
@@ -348,9 +349,9 @@ def run_clust(args):
     logging.info(f"detected {len(fams)} orthogroups in "
         f"{len(genomes)} genomes")
     
-    if args.max_clusters == 0:
-        args.max_clusters = len(genomes)
-        logging.info(f"set max_clusters to {args.max_clusters}")
+    if args.max_genomes == 0:
+        args.max_genomes = len(genomes)
+        logging.info(f"max_genomes set to {args.max_genomes}")
     
     logging.info("removing same-genome copies of core genes")
     core = core.drop_duplicates(["genome", "orthogroup"], keep = False)
@@ -382,8 +383,8 @@ def run_clust(args):
     logging.info("initializing empty identity matrix")
     id_m = np.zeros([len(genomes), 0])
     
-    logging.info("adding cluster seeds until max_clusters or identity "
-        "threshold is reached")
+    logging.info("adding genomes until max_genomes or identity threshold is "
+        "reached")
     core_grouped = core.copy().groupby("orthogroup")
     core_grouped = [core_fam for fam, core_fam in core_grouped]
     seeds = []
@@ -402,7 +403,7 @@ def run_clust(args):
         min_max_ids = max_ids[s]
         seed_genome = genomes[s]
         
-        # if clusters small enough: break the loop
+        # if sampled genomes close enough to each other: break the loop
         if min_max_ids > args.identity:
             print("")
             logging.info("identity threshold reached")
@@ -465,10 +466,10 @@ def run_clust(args):
         for g, genome in enumerate(genomes):
             id_m[g, -1] = ids.loc[genome, "identity"]
             
-        # if enough clusters: break the loop
-        if np.size(id_m, 1) == args.max_clusters:
+        # if enough sampled genomes: break the loop
+        if np.size(id_m, 1) == args.max_genomes:
             print("")
-            logging.info("max number of clusters reached")
+            logging.info("max number of genomes sampled")
             break
             
     logging.info("writing seeds.txt")
@@ -484,7 +485,7 @@ def run_clust(args):
     id_df = id_df[cols]
     id_df.to_csv(fout_identities, sep = "\t", index = False, header = True)
         
-    logging.info("assigning cluster numbers")
+    logging.info("clustering the genomes")
     clusters = np.argmax(id_m, 1)
     genomes_clusters = pd.DataFrame({"genome": genomes, "cluster": clusters})
     logging.info(f"{len(set(clusters))} clusters found")

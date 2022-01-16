@@ -120,17 +120,17 @@ def run_supermatrix_withchecks(args):
     
     run_supermatrix(args)
 
-def run_clust_withchecks(args):
+def run_sample_withchecks(args):
 
-    logging.info("welcome to the clust task")
+    logging.info("welcome to the sample task")
 
     logging.info("checking arguments other than output folder")
     check_fastas(args.fastapaths)
     fastapaths = read_fastapaths(args.fastapaths)
     n_genomes = len(fastapaths)
-    if args.max_clusters > n_genomes:
-        args.max_clusters = n_genomes
-        logging.info(f"max_clusters reduced to {args.max_clusters}, since "
+    if args.max_genomes > n_genomes:
+        args.max_genomes = n_genomes
+        logging.info(f"max_genomes reduced to {args.max_genomes}, since "
             "that's the total number of genomes")
     check_infile(args.coregenome)
     if args.identity > 100:
@@ -140,11 +140,11 @@ def run_clust_withchecks(args):
         args.identity = args.identity / 100
         logging.info(f"corrected identity value to {str(args.identity)}")
     if args.method == "median":
-        logging.info("per-gene identity values will be aggregated using the "
-            "median of all values")
+        logging.info("whole-genome ANI will be calculated as the median of all "
+            "per-gene identity values")
     elif args.method == "mean":
-        logging.info("per-gene identity values will be aggregated using "
-            "the mean of all values")
+        logging.info("whole-genome ANI will be calculated as the mean of all "
+            "per-gene identity values")
     elif args.method[:4] == "mean":
         p = args.method[4:]
         try:
@@ -153,8 +153,8 @@ def run_clust_withchecks(args):
         except ValueError:
             logging.error("method unknown")
             sys.exit(1)
-        logging.info(f"per-gene identity values will be aggregated using "
-            f"the mean of the middle {p}% of values")
+        logging.info(f"whole-genome ANI will be calculated as the mean of the "
+            f"middle {p}% of per-gene identity values")
     else:
         logging.error("method unknown")
         sys.exit(1)
@@ -162,7 +162,7 @@ def run_clust_withchecks(args):
     logging.info("checking dependencies")
     check_mmseqs()
     
-    run_clust(args)
+    run_sample(args)
 
 def run_fetch_withchecks(args):
 
