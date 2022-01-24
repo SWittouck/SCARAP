@@ -125,8 +125,11 @@ def check_fastas(path):
         check_fasta(fastapath)
 
 def check_db(path):
-    exts = [".h3f", ".h3i", ".h3m", ".h3p"]
-    for db_file in [os.path.join(path, "hmm_db" + ext) for ext in exts]:
-        if not os.path.isfile(db_file):
-            logging.error("profile hmm database not found")
-            sys.exit(1)
+    din_alis = os.path.join(path, "alignments")
+    fin_cutoffs = os.path.join(path, "cutoffs.csv")
+    if not os.path.isdir(din_alis):
+        logging.error("no folder with alignments found")
+        sys.exit(1)
+    if not os.path.isfile(fin_cutoffs):
+        logging.error("no file with score cutoffs found")
+        sys.exit(1)

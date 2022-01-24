@@ -35,9 +35,9 @@ TASKS
     sample        --> sample a subset of representative genomes
     fetch         --> fetch sequences and store in fasta per orthogroup
 PIPELINES
+    core          --> infer a core genome from a set of faa files
     pan-pipeline  --> infer a pangenome, build a profile HMM database and train
                       score cutoffs from a set of faa files
-    core-pipeline --> infer a core genome from a set of faa files
 DOCUMENTATION
     https://github.com/swittouck/scarap\
 '''
@@ -91,9 +91,18 @@ def parse_arguments():
         help = "input file with pangenome")
     parser_build.add_argument("outfolder",
         help = "output folder for hmm database")
-    parser_build.add_argument("-m", "--min_genomes", default = 1, type = int,
-        help = "minimum number of genomes an orthogroup should be present in "
-            "to be included in the db [default 1]")
+    parser_build.add_argument("-p", "--core_prefilter", default = 0,
+        type = float,
+        help = "minimum relative frequency of single-copy presence to be used "
+            "for initial database construction [default 0]")
+    parser_build.add_argument("-f", "--core_filter", default = 0,
+        type = float,
+        help = "minimum relative frequency of single-copy presence to be used "
+            "for final database selection [default 0]")
+    parser_build.add_argument("-m", "--max_cores", default = 0,
+        type = int,
+        help = "maximum number of core genes to retrieve (0 = no maximum) " 
+            "[default 0]")
     parser_build.add_argument("-t", "--threads", default = 8, type = int,
         help = "number of threads to use [default 8]")
     parser_build.add_argument("-c", "--cont", action = "store_true",
@@ -108,15 +117,6 @@ def parse_arguments():
         help = "input folder with hmm database")
     parser_search.add_argument("outfolder",
         help = "output folder for search hits")
-    parser_search.add_argument("-y", "--trainstrategy",
-        choices = ['pan', 'core'],
-        help = "training strategy to use; if given, orthogroup score cutoff "
-            "values will be determined [options: core, pan]")
-    parser_search.add_argument("-p", "--pangenome",
-        help = "input file with pangenome; required for cutoff training with "
-            "the 'pan' strategy")
-    parser_search.add_argument("-o", "--orthogroups",
-        help = "input file with subset of orthogroups in the database to use")
     parser_search.add_argument("-t", "--threads", default = 8, type = int,
         help = "number of threads to use [default 8]")
     parser_search.add_argument("-c", "--cont", action = "store_true",
@@ -206,32 +206,32 @@ def parse_arguments():
         parents = [parser_pan_parent])
     parser_pan_pipeline.set_defaults(func = run_pan_pipeline_withchecks)
 
-    parser_core_pipeline = subparsers.add_parser('core-pipeline')
-    parser_core_pipeline.set_defaults(func = run_core_pipeline_withchecks)
-    parser_core_pipeline.add_argument("faapaths",
+    parser_core = subparsers.add_parser('core')
+    parser_core.set_defaults(func = run_core_withchecks)
+    parser_core.add_argument("faapaths",
         help = "file with paths to or folder with faa files of genomes")
-    parser_core_pipeline.add_argument("outfolder",
+    parser_core.add_argument("outfolder",
         help = "output folder")
-    parser_core_pipeline.add_argument("-d", "--method", default = "FH",
+    parser_core.add_argument("-d", "--method", default = "FH",
         choices = ["H", "FH", "H-nl", "T-nl", "P", "O-B", "O-D", "S"],
         help = "pangenome inference method [default: FH]")
-    parser_core_pipeline.add_argument("-e", "--seeds", default = 100, type = int,
+    parser_core.add_argument("-e", "--seeds", default = 100, type = int,
         help = "number of seed genomes to use [default 100]")
-    parser_core_pipeline.add_argument("-f", "--seedfilter", default = 95,
-        type = int,
-        help = "minimum number of seed genomes where a core gene should be "
-            "present (in any copy number) [default 95]")
-    parser_core_pipeline.add_argument("-i", "--allfilter", default = 0,
+    parser_core.add_argument("-p", "--core_prefilter", default = 0.90,
         type = float,
-        help = "minimum percentage of all genomes where a core gene should be "
-            "present in a single copy [default 0]")
-    parser_core_pipeline.add_argument("-m", "--max_genes", default = 0,
+        help = "minimum relative frequency of single-copy presence to be used "
+            "for initial database construction [default 0.90]")
+    parser_core.add_argument("-f", "--core_filter", default = 0.95,
+        type = float,
+        help = "minimum relative frequency of single-copy presence to be used "
+            "for final database selection [default 0.95]")
+    parser_core.add_argument("-m", "--max_cores", default = 0,
         type = int,
         help = "maximum number of core genes to retrieve (0 = no maximum) " 
             "[default 0]")
-    parser_core_pipeline.add_argument("-t", "--threads", default = 8,
+    parser_core.add_argument("-t", "--threads", default = 8,
         type = int, help = "number of threads to use [default 8]")
-    parser_core_pipeline.add_argument("-c", "--cont", action = "store_true",
+    parser_core.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
 
     args = parser.parse_args()

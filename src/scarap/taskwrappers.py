@@ -7,6 +7,16 @@ from checkers import *
 from tasks_composite import *
 from tasks_core import *
 
+# helper function
+def correct_freq(freq, name):
+    if freq > 100:
+        logging.error(f"{name} should be between 0 and 1")
+        sys.exit(1)
+    elif freq > 1:
+        freq = freq / 100
+        logging.info(f"corrected {name} value to {str(freq)}")
+    return(freq)
+
 def run_pan_withchecks(args):
 
     logging.info("welcome to the pan task")
@@ -35,14 +45,11 @@ def run_build_withchecks(args):
     check_fastas(args.faapaths)
     check_infile(args.pangenome)
     faapaths = read_fastapaths(args.faapaths)
-    n_genomes = len(faapaths)
-    if args.min_genomes > n_genomes:
-        args.min_genomes = n_genomes
-        logging.info(f"min_genomes reduced to {args.min_genomes}, since that's "
-            "the total number of genomes")
+    args.core_prefilter = correct_freq(args.core_prefilter, "core prefilter")
+    args.core_filter = correct_freq(args.core_filter, "core filter")
 
     logging.info("checking dependencies")
-    check_tool("hmmbuild", ["-h"])
+    check_mmseqs()
     check_mafft()
 
     run_build(args)
@@ -54,20 +61,6 @@ def run_search_withchecks(args):
     logging.info("checking arguments other than output folder")
     check_fastas(args.qpaths)
     check_db(args.db)
-    if args.trainstrategy is None:
-        check_infile(os.path.join(args.db, "orthogroups.tsv"))
-    else:
-        check_outfile(os.path.join(args.db, "orthogroups.tsv"))
-    if args.trainstrategy == "pan":
-        if args.pangenome is None:
-            logging.error("pangenome is required for cutoff training with the "
-            " pan strategy")
-            sys.exit(1)
-        check_infile(args.pangenome)
-    if not args.orthogroups is None:
-        check_infile(args.orthogroups)
-        logging.warning("the option to subset orthogroups is not yet "
-            "implemented")
 
     logging.info("checking dependencies")
     check_tool("hmmsearch", ["-h"])
@@ -194,7 +187,7 @@ def run_pan_pipeline_withchecks(args):
     
     run_pan_pipeline(args)
 
-def run_core_pipeline_withchecks(args):
+def run_core_withchecks(args):
 
     logging.info("welcome to the core pipeline")
 
@@ -203,18 +196,11 @@ def run_core_pipeline_withchecks(args):
     fastapaths = read_fastapaths(args.faapaths)
     n_genomes = len(fastapaths)
     if args.seeds > n_genomes:
-        seedfilter_new = n_genomes * args.seedfilter // args.seeds # result is still integer
         args.seeds = n_genomes
         logging.info(f"number of seeds reduced to {args.seeds}, since that's "
             "the number of genomes")
-        args.seedfilter = seedfilter_new
-        logging.info(f"seedfilter set to {args.seedfilter}")
-    if args.allfilter > 100:
-        logging.error("allfilter should be between 0 and 1")
-        sys.exit(1)
-    elif args.allfilter > 1:
-        args.allfilter = args.allfilter / 100
-        logging.info(f"corrected allfilter value to {str(args.allfilter)}")
+    args.core_prefilter = correct_freq(args.core_prefilter, "core prefilter")
+    args.core_filter = correct_freq(args.core_filter, "core filter")
 
     logging.info("checking dependencies")
     if args.method in ["O-B", "O-D"]:
@@ -222,7 +208,5 @@ def run_core_pipeline_withchecks(args):
     else:
         check_mmseqs()
     check_mafft()
-    check_tool("hmmbuild", ["-h"])
-    check_tool("hmmsearch", ["-h"])
     
-    run_core_pipeline(args)
+    run_core(args)

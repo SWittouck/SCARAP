@@ -4,7 +4,8 @@ import os
 import re
 import pandas as pd
 
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
+from io import StringIO
 
 from utils import *
         
@@ -106,3 +107,16 @@ def extract_genes(fins_genomes):
         genes = genes.append(genes_genome)
 
     return(genes)
+  
+def fastas2stockholm(fins_alis, fout_sto):
+    with open(fout_sto, "a") as hout_sto:
+        for fin_ali in fins_alis:
+            orthogroup = os.path.splitext(os.path.basename(fin_ali))[0]
+            with open(fin_ali) as hin_ali:
+                ali = AlignIO.read(hin_ali, "fasta")
+                with StringIO() as vf:
+                    AlignIO.write(ali, vf, "stockholm")
+                    sto = vf.getvalue().splitlines()
+                sto.insert(1, "#=GF ID " + orthogroup)
+                for line in sto:
+                    hout_sto.write(line + "\n")

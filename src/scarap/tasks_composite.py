@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 
 from argparse import Namespace
 from random import sample
@@ -27,57 +28,63 @@ def run_pan_pipeline(args):
         threads = args.threads, pangenome = args.pangenome)
     run_search(args_search)
 
-def run_core_pipeline(args):
+def run_core(args):
+  
+    fin_faapaths = args.faapaths
+    dout = args.outfolder
+    method = args.method
+    seeds = args.seeds
+    core_prefilter = args.core_prefilter
+    core_filter = args.core_filter
+    max_cores = args.max_cores
+    threads = args.threads
+    
+    # define paths
+    dout_seedpan = os.path.join(dout, "seedpan")
+    dout_seedcore = os.path.join(dout, "seedcore")
+    fout_seedpaths = os.path.join(dout, "seedpaths.txt")
+    fout_nonseedpaths = os.path.join(dout, "nonseedpaths.txt")
+    fout_seedpan = os.path.join(dout_seedpan, "pangenome.tsv")
+    fout_genes_core = os.path.join(dout_seedcore, "genes.tsv")
+    fout_genes = os.path.join(dout, "genes.tsv")
+    
+    # make output subfolders 
+    for dir in [dout_seedpan, dout_seedcore]:
+        os.makedirs(dir, exist_ok = True)
 
     logging.info("selecting random seed genomes")
-    seedsdio = os.path.join(args.outfolder, "seeds")
-    os.makedirs(seedsdio, exist_ok = True)
-    faapaths = read_fastapaths(args.faapaths)
-    seedpathsfio = os.path.join(seedsdio, "seedpaths.txt")
-    if not os.path.isfile(os.path.join(seedpathsfio)):
-        seedpaths = sample(faapaths, args.seeds)
-        write_tsv(pd.DataFrame({"path": seedpaths}), seedpathsfio)
-    else:
-        seedpaths = read_lines(seedpathsfio)
+    fins_faas = read_fastapaths(fin_faapaths)
+    if not os.path.isfile(fout_seedpaths):
+        fins_seeds = sample(fins_faas, seeds)
+        fins_nonseeds = [fin for fin in fins_faas if not fin in fins_seeds]
+        write_tsv(pd.DataFrame({"path": fins_seeds}), fout_seedpaths)
+        write_tsv(pd.DataFrame({"path": fins_nonseeds}), fout_nonseedpaths)
 
     logging.info("STEP 1 - inferring pangenome of seed genomes")
-    args_pan = Namespace(faapaths = seedpathsfio, outfolder = seedsdio,
-        method = args.method, threads = args.threads)
+    args_pan = Namespace(faapaths = fout_seedpaths, outfolder = dout_seedpan,
+        method = method, threads = threads)
     run_pan(args_pan)
     
-    logging.info("STEP 2a - selecting candidate core genes")
-    seedspanfio = os.path.join(seedsdio, "pangenome.tsv")
-    seedspan = read_genes(seedspanfio)
-    seedspanfams = checkgroups(seedspan)
-    tokeep = seedspanfams.occurrence_singlecopy >= args.seedfilter / args.seeds
-    seedscorefams = seedspanfams[tokeep]
-    logging.info(f"{len(seedscorefams.index)} candidate core genes found")
-    if (args.max_genes > 0):
-        seedscorefams = seedscorefams\
-            .sort_values("occurrence_singlecopy", ascending = False)\
-            .head(args.max_genes)
-    seedscore = filter_groups(seedspan, seedscorefams.orthogroup)
-    logging.info(f"{len(seedscorefams.index)} candidate core genes selected")
-    seedscorefio = os.path.join(seedsdio, "coregenome.tsv")
-    write_tsv(seedscore, seedscorefio)
-
-    logging.info("STEP 2b - building database of candidate core genes")
-    candsdio = os.path.join(args.outfolder, "cands")
-    os.makedirs(candsdio, exist_ok = True)
-    args_build = Namespace(faapaths = seedpathsfio, pangenome = seedscorefio,
-        outfolder = candsdio, min_genomes = 0)
+    logging.info("STEP 2 - building database of seed core genes and searching "
+        "in seed faas")
+    args_build = Namespace(faapaths = fout_seedpaths, pangenome = fout_seedpan,
+        outfolder = dout_seedcore, core_prefilter = core_prefilter,
+        core_filter = core_filter, max_cores = max_cores, threads = threads)
     run_build(args_build)
+    
+    if os.stat(fout_nonseedpaths).st_size == 0:
+        logging.info("all faa files are seeds - skipping search in non-seeds")
+        shutil.copy(fout_genes_core, fout_genes)
+        return()
 
-    logging.info("STEP 3 - searching candidate core orthogroups in all genomes")
-    args_search = Namespace(qpaths = args.faapaths, db = candsdio,
-        outfolder = candsdio, trainstrategy = "core", threads = args.threads)
+    logging.info("STEP 3 - identifying core orthogroups in non-seed genomes")
+    args_search = Namespace(qpaths = fout_nonseedpaths, db = dout_seedcore,
+        outfolder = dout, threads = threads)
     run_search(args_search)
-
-    logging.info("STEP 4 - selecting core orthogroups from candidates")
-    candcoregenome = read_genes(os.path.join(candsdio, "genes.tsv"))
-    candcorefams = checkgroups(candcoregenome)
-    tokeep = candcorefams.occurrence_singlecopy >= args.allfilter
-    corefams = candcorefams[tokeep].orthogroup
-    coregenome = filter_groups(candcoregenome, corefams)
-    write_tsv(corefams, os.path.join(args.outfolder, "core_orthogroups.txt"))
-    write_tsv(coregenome, os.path.join(args.outfolder, "coregenome.tsv"))
+    
+    logging.info("adding search results in seeds to search results of "
+        " non-seeds")
+    with open(fout_genes, "a") as hout_genes:
+        with open(fout_genes_core) as hout_genes_core:
+            for line in hout_genes_core:
+                hout_genes.write(line)

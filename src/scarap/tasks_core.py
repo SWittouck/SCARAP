@@ -115,87 +115,166 @@ def run_pan_hier(args):
     pangenome = pd.merge(speciespans, metapan)
     pangenome = pangenome[["gene", "genome", "orthogroup"]]
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
+    
+# helper function for the build and search modules
+def run_profilesearch(fins_alis, fins_faas, fout_hits, dout_tmp, threads):
+  
+    # define tmp paths 
+    dout_mmseqs = os.path.join(dout_tmp, "mmseqs2")
+    dout_logs = os.path.join(dout_tmp, "mmseqs2_logs")
+    dout_rubbish = os.path.join(dout_tmp, "rubbish")
+    fout_sto = os.path.join(dout_tmp, "alis.sto")
 
-def run_build(args):
+    # create tmp subfolders
+    for dir in [dout_mmseqs, dout_logs, dout_rubbish]:
+        os.makedirs(dir, exist_ok = True)
 
-    if os.path.isfile(os.path.join(args.outfolder, "hmm_db.h3f")):
+    logging.info("converting alignments from fasta to stockholm format")
+    fastas2stockholm(fins_alis, fout_sto)
+    
+    logging.info("creating mmseqs2 database from faa files")
+    run_mmseqs(["createdb"] + fins_faas + [f"{dout_mmseqs}/faadb"], 
+        f"{dout_logs}/create_faadb.log")
+    
+    logging.info("creating mmseqs2 database with profiles of orthogroups")
+    run_mmseqs(["convertmsa", fout_sto, f"{dout_mmseqs}/msadb",
+        "--identifier-field", "0"], f"{dout_logs}/create_msadb.log")
+    run_mmseqs(["msa2profile", f"{dout_mmseqs}/msadb", 
+        f"{dout_mmseqs}/profiledb", "--match-mode", "1"], 
+        f"{dout_logs}/create_msadb.log")
+    
+    logging.info("searching faas against profiles") 
+    run_mmseqs(["search", f"{dout_mmseqs}/faadb", f"{dout_mmseqs}/profiledb", 
+        f"{dout_mmseqs}/resultdb", f"{dout_rubbish}"], 
+        f"{dout_logs}/search.log", threads = threads)
+    run_mmseqs(["createtsv", f"{dout_mmseqs}/faadb", f"{dout_mmseqs}/profiledb",
+        f"{dout_mmseqs}/resultdb", fout_hits, "--full-header"], 
+        f"{dout_logs}/create_tsv.log")
+        
+    # remove tmp
+    shutil.rmtree(dout_tmp)
+    
+def run_build(args): 
+    
+    fin_faapaths = args.faapaths
+    fin_pangenome = args.pangenome
+    dout = args.outfolder
+    core_prefilter = args.core_prefilter
+    core_filter = args.core_filter
+    max_cores = args.max_cores
+    threads = args.threads
+    
+    # define output paths/folders
+    dout_ogseqs = os.path.join(dout, "orthogroups")
+    dout_alis = os.path.join(dout, "alignments")
+    dout_tmp = os.path.join(dout, "tmp")
+    fout_cutoffs = os.path.join(dout, "cutoffs.csv")
+    fout_hits = os.path.join(dout, "hits.tsv")
+    fout_genes = os.path.join(dout, "genes.tsv")
+
+    if os.path.isfile(fout_cutoffs):
         logging.info("existing database detected - moving on")
         return()
 
     logging.info("creating output subfolders")
-    orthogroupsdio = os.path.join(args.outfolder, "orthogroups")
-    alignmentsdio = os.path.join(args.outfolder, "alignments")
-    profilesdio = os.path.join(args.outfolder, "profiles")
-    os.makedirs(orthogroupsdio, exist_ok = True)
-    os.makedirs(alignmentsdio, exist_ok = True)
-    os.makedirs(profilesdio, exist_ok = True)
+    for dir in [dout_ogseqs, dout_alis]:
+        os.makedirs(dir, exist_ok = True)
+        
+    logging.info("reading pangenome")
+    pangenome = read_genes(fin_pangenome)
+        
+    if core_prefilter != 0:
+        logging.info(f"applying core prefilter of {core_prefilter}")
+        pangenome = apply_corefilters(pangenome, core_filter)
 
     logging.info("gathering sequences of orthogroups")
-    pangenome = read_genes(args.pangenome)
-    faafins = read_fastapaths(args.faapaths)
-    gather_orthogroup_sequences(pangenome, faafins, orthogroupsdio,
-        args.min_genomes)
-    logging.info(f"gathered sequences for {len(os.listdir(orthogroupsdio))} "
-        f"orthogroups occurring in at least {args.min_genomes} genome(s)")
+    fins_faas = read_fastapaths(fin_faapaths)
+    gather_orthogroup_sequences(pangenome, fins_faas, dout_ogseqs, 1)
+    logging.info(f"gathered sequences for {len(os.listdir(dout_ogseqs))} "
+        f"orthogroups")
 
     logging.info("aligning orthogroups")
-    orthogroups = [os.path.splitext(file)[0] for file in
-        os.listdir(orthogroupsdio)]
-    orthogroupfouts = make_paths(orthogroups, orthogroupsdio, ".fasta")
-    alifouts = make_paths(orthogroups, alignmentsdio, ".aln")
-    run_mafft_parallel(orthogroupfouts, alifouts)
+    orthogroups = [os.path.splitext(f)[0] for f in os.listdir(dout_ogseqs)]
+    fouts_ogseqs = make_paths(orthogroups, dout_ogseqs, ".fasta")
+    fouts_alis = make_paths(orthogroups, dout_alis, ".aln")
+    run_mafft_parallel(fouts_ogseqs, fouts_alis)
+    
+    # run profile search (function does its own logging)
+    run_profilesearch(fouts_alis, fins_faas, fout_hits, dout_tmp, threads)
+    
+    logging.info("training score cutoffs for profiles") 
+    colnames = ["gene", "profile", "score"]
+    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
+        usecols = [0, 1, 2])
+    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
+        applymap(lambda x: x.split(" ")[0])
+    cutoffs = train_cutoffs_pan(hits, pangenome)
+    
+    logging.info("applying score cutoffs to pangenome")
+    genes = process_scores(hits, cutoffs)
+    genes = pd.merge(pangenome[["gene", "genome"]], genes, how = "left")
+    
+    if core_filter != 0 or max_cores != 0:
+        logging.info(f"applying core filter of {core_filter} and maximum "
+            f"number of core genes of {max_cores}")
+        genes = apply_corefilters(genes, core_filter = core_filter, 
+            max_cores = max_cores)
+        corefams = genes["orthogroup"].unique().tolist()
+        cutoffs = cutoffs[cutoffs["profile"].isin(corefams)]
+        for file in os.listdir(dout_alis):
+            if not os.path.splitext(file)[0] in corefams:
+                os.remove(os.path.join(dout_alis, file))
+    
+    logging.info("writing output files")
+    write_tsv(genes, fout_genes)
+    write_tsv(cutoffs, fout_cutoffs)
+    
+    logging.info("removing temporary files and folders")
+    shutil.rmtree(dout_ogseqs)
+    os.remove(fout_hits)
+    
+def run_search(args): 
+    
+    fin_qpaths = args.qpaths
+    din_db = args.db
+    dout = args.outfolder
+    threads = args.threads
+    
+    # define output paths/folders
+    dout_tmp = os.path.join(dout, "tmp")
+    din_alis = os.path.join(din_db, "alignments")
+    fin_cutoffs = os.path.join(din_db, "cutoffs.csv")
+    fout_hits = os.path.join(dout, "hits.tsv")
+    fout_genes = os.path.join(dout, "genes.tsv")
 
-    logging.info("building profile hmms")
-    profilefouts = make_paths(orthogroups, profilesdio, ".hmm")
-    run_hmmbuild_parallel(alifouts, profilefouts)
-
-    logging.info("pressing profile hmm database")
-    run_hmmpress(profilefouts, args.outfolder)
-
-def run_search(args):
-
-    genesfout = os.path.join(args.outfolder, "genes.tsv")
-    if os.path.isfile(genesfout):
+    if os.path.isfile(fout_genes):
         logging.info("existing search results detected - moving on")
         return()
-
-    cutoffsfio = os.path.join(args.db, "orthogroups.tsv")
-
-    logging.info("performing hmmsearch")
-    queryfins = read_fastapaths(args.qpaths)
-    domtblfio = os.path.join(args.outfolder, "hmmer_domtbl.tmp")
-    if os.path.isfile(domtblfio):
-        logging.info("existing hmmer domtbl detected - skipping hmmsearch")
-    else:
-        run_hmmsearch(args.db, queryfins, domtblfio, args.threads)
-    hits = read_domtbl(domtblfio)
-    # write_tsv(hits, os.path.join(args.outfolder, "hits.tsv"))
-    genes_genomes = extract_genes(queryfins)
-
-    if args.trainstrategy == "pan":
-
-        logging.info("traninig profile-specific hmmer cutoffs with the pan "
-            "strategy")
-        pangenome = read_genes(args.pangenome)
-        cutoffs = train_cutoffs_pan(hits, pangenome)
-        write_tsv(cutoffs, cutoffsfio)
-
-    elif args.trainstrategy == "core":
-
-        logging.info("traninig profile-specific hmmer cutoffs with the core "
-            "strategy")
-        cutoffs = train_cutoffs_core(hits, genes_genomes)
-        write_tsv(cutoffs, cutoffsfio)
-
-    logging.info("applying hmmer score cutoffs")
-    orthogroups = read_orthogroups(cutoffsfio)
-    genes = process_scores(hits, orthogroups)
-    genes = pd.merge(genes, genes_genomes, how = "left")
-    genes = genes[["gene", "genome", "orthogroup"]]
-    write_tsv(genes, genesfout)
-
-    logging.info("removing temporary files")
-    os.remove(domtblfio)
+    
+    # run profile search (function does its own logging)
+    fins_alis = [os.path.join(din_alis, f) for f in os.listdir(din_alis)]
+    fins_queries = read_fastapaths(fin_qpaths)
+    run_profilesearch(fins_alis, fins_queries, fout_hits, dout_tmp, threads)
+    
+    logging.info("reading hits and score cutoffs")
+    colnames = ["gene", "profile", "score"]
+    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
+        usecols = [0, 1, 2])
+    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
+        applymap(lambda x: x.split(" ")[0])
+    colnames = ["profile", "cutoff"]
+    cutoffs = pd.read_csv(fin_cutoffs, sep = "\t", names = colnames)
+    
+    logging.info("applying score cutoffs to hits")
+    genes = process_scores(hits, cutoffs)
+    genes_genomes = extract_genes(fins_queries)
+    genes = pd.merge(genes_genomes, genes, how = "right")
+    
+    logging.info("writing output files")
+    write_tsv(genes, fout_genes)
+    
+    logging.info("removing temporary files and folders")
+    os.remove(fout_hits)
 
 def run_checkgenomes(args):
 
