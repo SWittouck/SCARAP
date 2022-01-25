@@ -11,7 +11,7 @@ import logging
 import sys
 
 from utils import *
-from taskwrappers import *
+from module_wrappers import *
 
 def print_help():
 
@@ -23,10 +23,11 @@ AUTHORS
     Sarah Lebeer (supervision)
 USAGE
     scarap [-h] <task> <task-specific arguments>
-TASKS
+MODULES
     pan           --> infer a pangenome from a set of faa files
-    build         --> build a profile HMM database for a core/pangenome
-    search        --> search query genes in a core/pangenome database
+    core          --> infer a core genome from a set of faa files
+    build         --> build a profile database for a core/pangenome
+    search        --> search query genes in a profile database
     checkgenomes  --> assess the quality of genomes in a core genome
     checkgroups   --> assess the quality of orthogroups in a core genome
     filter        --> filter the genomes/orthogroups in a pangenome
@@ -34,10 +35,6 @@ TASKS
                       core genome
     sample        --> sample a subset of representative genomes
     fetch         --> fetch sequences and store in fasta per orthogroup
-PIPELINES
-    core          --> infer a core genome from a set of faa files
-    pan-pipeline  --> infer a pangenome, build a profile HMM database and train
-                      score cutoffs from a set of faa files
 DOCUMENTATION
     https://github.com/swittouck/scarap\
 '''
@@ -201,10 +198,6 @@ def parse_arguments():
         help = "output folder for fasta files")
     parser_fetch.add_argument("-c", "--cont", action = "store_true",
         help = "continue in existing output folder [default False]")
-
-    parser_pan_pipeline = subparsers.add_parser('pan-pipeline',
-        parents = [parser_pan_parent])
-    parser_pan_pipeline.set_defaults(func = run_pan_pipeline_withchecks)
 
     parser_core = subparsers.add_parser('core')
     parser_core.set_defaults(func = run_core_withchecks)

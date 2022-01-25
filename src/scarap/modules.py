@@ -2,16 +2,19 @@ import logging
 import numpy as np
 import os
 import pandas as pd
-
-from concurrent.futures import ProcessPoolExecutor
-from statistics import median, mean
+import shutil
 
 from argparse import Namespace
-from utils import *
-from readerswriters import *
-from computers import *
+from concurrent.futures import ProcessPoolExecutor
+from statistics import median, mean
+from random import sample
+
 from callers import *
+from computers import *
+from helpers import * 
 from pan import *
+from readerswriters import *
+from utils import *
 
 def run_pan(args):
     if "species" in args and not args.species is None:
@@ -116,44 +119,6 @@ def run_pan_hier(args):
     pangenome = pangenome[["gene", "genome", "orthogroup"]]
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
     
-# helper function for the build and search modules
-def run_profilesearch(fins_alis, fins_faas, fout_hits, dout_tmp, threads):
-  
-    # define tmp paths 
-    dout_mmseqs = os.path.join(dout_tmp, "mmseqs2")
-    dout_logs = os.path.join(dout_tmp, "mmseqs2_logs")
-    dout_rubbish = os.path.join(dout_tmp, "rubbish")
-    fout_sto = os.path.join(dout_tmp, "alis.sto")
-
-    # create tmp subfolders
-    for dir in [dout_mmseqs, dout_logs, dout_rubbish]:
-        os.makedirs(dir, exist_ok = True)
-
-    logging.info("converting alignments from fasta to stockholm format")
-    fastas2stockholm(fins_alis, fout_sto)
-    
-    logging.info("creating mmseqs2 database from faa files")
-    run_mmseqs(["createdb"] + fins_faas + [f"{dout_mmseqs}/faadb"], 
-        f"{dout_logs}/create_faadb.log")
-    
-    logging.info("creating mmseqs2 database with profiles of orthogroups")
-    run_mmseqs(["convertmsa", fout_sto, f"{dout_mmseqs}/msadb",
-        "--identifier-field", "0"], f"{dout_logs}/create_msadb.log")
-    run_mmseqs(["msa2profile", f"{dout_mmseqs}/msadb", 
-        f"{dout_mmseqs}/profiledb", "--match-mode", "1"], 
-        f"{dout_logs}/create_msadb.log")
-    
-    logging.info("searching faas against profiles") 
-    run_mmseqs(["search", f"{dout_mmseqs}/faadb", f"{dout_mmseqs}/profiledb", 
-        f"{dout_mmseqs}/resultdb", f"{dout_rubbish}"], 
-        f"{dout_logs}/search.log", threads = threads)
-    run_mmseqs(["createtsv", f"{dout_mmseqs}/faadb", f"{dout_mmseqs}/profiledb",
-        f"{dout_mmseqs}/resultdb", fout_hits, "--full-header"], 
-        f"{dout_logs}/create_tsv.log")
-        
-    # remove tmp
-    shutil.rmtree(dout_tmp)
-    
 def run_build(args): 
     
     fin_faapaths = args.faapaths
@@ -204,7 +169,7 @@ def run_build(args):
     run_mafft_parallel(fouts_ogseqs, fouts_alis)
     
     # run profile search (function does its own logging)
-    run_profilesearch(fouts_alis, fins_faas, fout_hits, dout_tmp, threads)
+    run_profilesearch(fins_faas, fouts_alis, fout_hits, dout_tmp, threads)
     
     logging.info("training score cutoffs for profiles") 
     colnames = ["gene", "profile", "score"]
@@ -260,7 +225,7 @@ def run_search(args):
     # run profile search (function does its own logging)
     fins_alis = [os.path.join(din_alis, f) for f in os.listdir(din_alis)]
     fins_queries = read_fastapaths(fin_qpaths)
-    run_profilesearch(fins_alis, fins_queries, fout_hits, dout_tmp, threads)
+    run_profilesearch(fins_queries, fins_alis, fout_hits, dout_tmp, threads)
     
     logging.info("reading hits and score cutoffs")
     colnames = ["gene", "profile", "score"]
@@ -598,4 +563,65 @@ def run_fetch(args):
     logging.info("gathering sequences of orthogroups")
     fins_fastas = read_fastapaths(args.fastapaths)
     gather_orthogroup_sequences(genes, fins_fastas, dout_seqs)
+    
+def run_core(args):
+  
+    fin_faapaths = args.faapaths
+    dout = args.outfolder
+    method = args.method
+    seeds = args.seeds
+    core_prefilter = args.core_prefilter
+    core_filter = args.core_filter
+    max_cores = args.max_cores
+    threads = args.threads
+    
+    # define paths
+    dout_seedpan = os.path.join(dout, "seedpan")
+    dout_seedcore = os.path.join(dout, "seedcore")
+    fout_seedpaths = os.path.join(dout, "seedpaths.txt")
+    fout_nonseedpaths = os.path.join(dout, "nonseedpaths.txt")
+    fout_seedpan = os.path.join(dout_seedpan, "pangenome.tsv")
+    fout_genes_core = os.path.join(dout_seedcore, "genes.tsv")
+    fout_genes = os.path.join(dout, "genes.tsv")
+    
+    # make output subfolders 
+    for dir in [dout_seedpan, dout_seedcore]:
+        os.makedirs(dir, exist_ok = True)
+
+    logging.info("selecting random seed genomes")
+    fins_faas = read_fastapaths(fin_faapaths)
+    if not os.path.isfile(fout_seedpaths):
+        fins_seeds = sample(fins_faas, seeds)
+        fins_nonseeds = [fin for fin in fins_faas if not fin in fins_seeds]
+        write_tsv(pd.DataFrame({"path": fins_seeds}), fout_seedpaths)
+        write_tsv(pd.DataFrame({"path": fins_nonseeds}), fout_nonseedpaths)
+
+    logging.info("STEP 1 - inferring pangenome of seed genomes")
+    args_pan = Namespace(faapaths = fout_seedpaths, outfolder = dout_seedpan,
+        method = method, threads = threads)
+    run_pan(args_pan)
+    
+    logging.info("STEP 2 - building database of seed core genes and searching "
+        "in seed faas")
+    args_build = Namespace(faapaths = fout_seedpaths, pangenome = fout_seedpan,
+        outfolder = dout_seedcore, core_prefilter = core_prefilter,
+        core_filter = core_filter, max_cores = max_cores, threads = threads)
+    run_build(args_build)
+    
+    if os.stat(fout_nonseedpaths).st_size == 0:
+        logging.info("all faa files are seeds - skipping search in non-seeds")
+        shutil.copy(fout_genes_core, fout_genes)
+        return()
+
+    logging.info("STEP 3 - identifying core orthogroups in non-seed genomes")
+    args_search = Namespace(qpaths = fout_nonseedpaths, db = dout_seedcore,
+        outfolder = dout, threads = threads)
+    run_search(args_search)
+    
+    logging.info("adding search results in seeds to search results of "
+        "non-seeds")
+    with open(fout_genes, "a") as hout_genes:
+        with open(fout_genes_core) as hout_genes_core:
+            for line in hout_genes_core:
+                hout_genes.write(line)
     

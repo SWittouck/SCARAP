@@ -4,8 +4,7 @@ import sys
 
 from utils import *
 from checkers import *
-from tasks_composite import *
-from tasks_core import *
+from modules import *
 
 # helper function
 def correct_freq(freq, name):
@@ -166,26 +165,6 @@ def run_fetch_withchecks(args):
     check_infile(args.genes)
     
     run_fetch(args)
-
-def run_pan_pipeline_withchecks(args):
-
-    logging.info("welcome to the pan pipeline")
-
-    logging.info("checking arguments other than output folder")
-    check_fastas(args.faapaths)
-    if not args.species is None:
-        check_infile(args.species)
-
-    logging.info("checking dependencies")
-    if args.method in ["O-B", "O-D"]:
-        check_tool("orthofinder")
-    else:
-        check_mmseqs()
-    check_mafft()
-    check_tool("hmmbuild", ["-h"])
-    check_tool("hmmsearch", ["-h"])
-    
-    run_pan_pipeline(args)
 
 def run_core_withchecks(args):
 

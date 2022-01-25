@@ -6,18 +6,18 @@ Remark: all scripts import utils
 
 * scarap.py:
     * commandline interface
-    * imports taskwrappers
-* taskwrappers.py:
+    * imports module_wrappers
+* module_wrappers.py:
     * wrappers for all tasks that check commandline arguments and dependencies
-    * imports tasks_composite, tasks_core, checkers
+    * imports modules, checkers
 * checkers.py:
     * functions that check commandline arguments and dependencies
-* tasks_composite.py:
-    * top-level code for composite tasks (tasks that depend on other tasks)
-    * imports tasks_core
-* tasks_core.py:
-    * top-level code for core tasks (tasks that don't depend on other tasks)
-    * imports readerswriters, computers, callers, pan
+* modules.py:
+    * top-level code for all modules
+    * imports helpers, readerswriters, computers, callers, pan
+* helpers.py: 
+    * helper functions for non-pan modules
+    * imports readerswriters, computers, callers
 * pan.py
     * code for the various builtin pangenome inference methods
     * imports readerswriters, computers, callers
