@@ -182,13 +182,17 @@ def run_build(args):
         
     logging.info("reading pangenome")
     pangenome = read_genes(fin_pangenome)
+    # read separate table with genomes of all genes, in case the pangenome
+    # table is not complete or core genes get selected
+    fins_faas = read_fastapaths(fin_faapaths)
+    genes_genomes = extract_genes(fins_faas)
         
     if core_prefilter != 0:
         logging.info(f"applying core prefilter of {core_prefilter}")
-        pangenome = apply_corefilters(pangenome, core_filter)
+        corefams = determine_corefams(pangenome, core_filter)
+        pangenome = filter_groups(pangenome, corefams)
 
     logging.info("gathering sequences of orthogroups")
-    fins_faas = read_fastapaths(fin_faapaths)
     gather_orthogroup_sequences(pangenome, fins_faas, dout_ogseqs, 1)
     logging.info(f"gathered sequences for {len(os.listdir(dout_ogseqs))} "
         f"orthogroups")
@@ -210,20 +214,22 @@ def run_build(args):
         applymap(lambda x: x.split(" ")[0])
     cutoffs = train_cutoffs_pan(hits, pangenome)
     
-    logging.info("applying score cutoffs to pangenome")
-    genes = process_scores(hits, cutoffs)
-    genes = pd.merge(pangenome[["gene", "genome"]], genes, how = "left")
-    
     if core_filter != 0 or max_cores != 0:
         logging.info(f"applying core filter of {core_filter} and maximum "
             f"number of core genes of {max_cores}")
-        genes = apply_corefilters(genes, core_filter = core_filter, 
+        genes = process_scores(hits, cutoffs, top_profiles = False)
+        genes = pd.merge(genes_genomes, genes, how = "right")
+        corefams = determine_corefams(genes, core_filter = core_filter,
             max_cores = max_cores)
-        corefams = genes["orthogroup"].unique().tolist()
+        hits = hits[hits["profile"].isin(corefams)]
         cutoffs = cutoffs[cutoffs["profile"].isin(corefams)]
         for file in os.listdir(dout_alis):
             if not os.path.splitext(file)[0] in corefams:
                 os.remove(os.path.join(dout_alis, file))
+    
+    logging.info("applying score cutoffs to pangenome")
+    genes = process_scores(hits, cutoffs)
+    genes = pd.merge(genes_genomes, genes, how = "right")
     
     logging.info("writing output files")
     write_tsv(genes, fout_genes)

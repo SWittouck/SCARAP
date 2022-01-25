@@ -83,7 +83,7 @@ def run_core(args):
     run_search(args_search)
     
     logging.info("adding search results in seeds to search results of "
-        " non-seeds")
+        "non-seeds")
     with open(fout_genes, "a") as hout_genes:
         with open(fout_genes_core) as hout_genes_core:
             for line in hout_genes_core:

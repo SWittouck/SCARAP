@@ -221,23 +221,24 @@ def train_cutoffs_core(hits, genes_genomes):
     profiles = train_cutoffs(hits[["gene", "profile", "score", "positive"]])
     return(profiles)
 
-def process_scores(hits, cutoffs):
+def process_scores(hits, cutoffs, top_profiles = True):
     hits = pd.merge(hits, cutoffs, how = "left")
     hits = hits[hits.score >= hits.cutoff]
-    ixs_to_keep = hits[["gene", "score"]].groupby("gene").idxmax().score
+    ixs_to_keep = hits.index
+    if top_profiles:
+        ixs_to_keep = hits[["gene", "score"]].groupby("gene").idxmax().score
     genes = hits.loc[ixs_to_keep, :][["gene", "profile"]]
     genes = genes.rename(columns = {"profile": "orthogroup"})
     return(genes)
 
-def apply_corefilters(pan, core_filter, max_cores = 0):
+def determine_corefams(pan, core_filter, max_cores = 0):
     fams = checkgroups(pan)
     corefams = fams[fams.occurrence_singlecopy >= core_filter]
     if (max_cores > 0):
         corefams = corefams\
             .sort_values("occurrence_singlecopy", ascending = False)\
             .head(max_cores)
-    core = filter_groups(pan, corefams.orthogroup)
-    return(core)
+    return(corefams.orthogroup.tolist())
 
 def checkgenomes(genes_core):
     """Computes genome statistics from a core genome table.
