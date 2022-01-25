@@ -177,7 +177,7 @@ def run_build(args):
         usecols = [0, 1, 2])
     hits[["gene", "profile"]] = hits[["gene", "profile"]].\
         applymap(lambda x: x.split(" ")[0])
-    cutoffs = train_cutoffs_pan(hits, pangenome)
+    cutoffs = train_cutoffs(hits, pangenome)
     
     if core_filter != 0 or max_cores != 0:
         logging.info(f"applying core filter of {core_filter} and maximum "

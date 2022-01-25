@@ -180,17 +180,21 @@ def pred_pgo(genomes_fam1, genomes_fam2):
         min([ncat_exp_fam1, ncat_exp_fam2])
     if pgo > 1: pgo = 1
     return(pgo)
-    
-def train_cutoffs(hits):
+
+def train_cutoffs(hits, pangenome):
     """Trains a cutoff per profile (orthogroup).
     
     Args:
         hits (DataFrame): A table with the columns gene, profile, score and 
             positive.
+        pangenome (DataFrame): A table with the columns gene, genome and 
+            orthogroup. 
             
     Returns:
         A table with the columns profile and cutoff.
     """
+    hits = pd.merge(hits, pangenome[["gene", "orthogroup"]], how = "left")
+    hits["positive"] = hits["profile"] == hits["orthogroup"]
     profile_to_cutoff = {}
     for profile, profile_hits in hits.groupby("profile"):
         scores_positive = profile_hits["score"][profile_hits["positive"]]
@@ -204,21 +208,6 @@ def train_cutoffs(hits):
                 mean(scores_negative)])
     profiles = pd.DataFrame(profile_to_cutoff.items(), columns = ["profile",
         "cutoff"])
-    return(profiles)
-
-def train_cutoffs_pan(hits, pangenome):
-    hits = pd.merge(hits, pangenome[["gene", "orthogroup"]], how = "left")
-    hits["positive"] = hits["profile"] == hits["orthogroup"]
-    profiles = train_cutoffs(hits[["gene", "profile", "score", "positive"]])
-    return(profiles)
-
-def train_cutoffs_core(hits, genes_genomes):
-    hits = pd.merge(hits, genes_genomes[["gene", "genome"]], how = "left")
-    ixs_positive = (hits[["gene", "genome", "score"]].
-        groupby(["gene", "genome"]).idxmax().score)
-    hits["positive"] = False
-    hits.loc[ixs_positive, "positive"] = True
-    profiles = train_cutoffs(hits[["gene", "profile", "score", "positive"]])
     return(profiles)
 
 def process_scores(hits, cutoffs, top_profiles = True):
