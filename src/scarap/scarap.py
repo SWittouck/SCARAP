@@ -158,6 +158,14 @@ def parse_arguments():
         help = "file with core genome")
     parser_supermatrix.add_argument("outfolder",
         help = "output file for supermatrix fasta file based on core genome")
+    parser_supermatrix.add_argument("-f", "--core_filter", default = 0,
+        type = float,
+        help = "minimum relative frequency of single-copy presence of "
+            "orthogroups included in the supermatrix [default 0]")
+    parser_supermatrix.add_argument("-m", "--max_cores", default = 0,
+        type = int,
+        help = "maximum number of core genes to use (0 = no maximum) " 
+            "[default 0]")
     parser_supermatrix.add_argument("-n", "--ffnpaths",
         help = "file with paths to or folder with ffn files of genomes; if "
             "given, a nucleotide supermatrix will be constructed in addition "

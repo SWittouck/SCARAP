@@ -106,6 +106,7 @@ def run_supermatrix_withchecks(args):
     check_infile(args.coregenome)
     if not args.ffnpaths is None:
         check_fastas(args.ffnpaths)
+    args.core_filter = correct_freq(args.core_filter, "core filter")
 
     logging.info("checking dependencies")
     check_mafft() 

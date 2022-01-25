@@ -276,26 +276,40 @@ def run_filter(args):
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
 
 def run_supermatrix(args):
+  
+    fin_faapaths = args.faapaths
+    fin_coregenome = args.coregenome
+    dout = args.outfolder
+    core_filter = args.core_filter
+    max_cores = args.max_cores
+    fin_ffnpaths = args.ffnpaths
 
-    sm_aas_fout = os.path.join(args.outfolder, "supermatrix_aas.fasta")
-    sm_nucs_fout = os.path.join(args.outfolder, "supermatrix_nucs.fasta")
-    seqs_aas_dio = os.path.join(args.outfolder, "seqs_aas")
-    seqs_nucs_dio = os.path.join(args.outfolder, "seqs_nucs")
-    alis_aas_dio = os.path.join(args.outfolder, "alis_aas")
-    alis_nucs_dio = os.path.join(args.outfolder, "alis_nucs")
+    sm_aas_fout = os.path.join(dout, "supermatrix_aas.fasta")
+    sm_nucs_fout = os.path.join(dout, "supermatrix_nucs.fasta")
+    seqs_aas_dio = os.path.join(dout, "seqs_aas")
+    seqs_nucs_dio = os.path.join(dout, "seqs_nucs")
+    alis_aas_dio = os.path.join(dout, "alis_aas")
+    alis_nucs_dio = os.path.join(dout, "alis_nucs")
     
     # exit if requested supermatrices already exist
-    if os.path.isfile(sm_aas_fout) and (args.ffnpaths is None or \
+    if os.path.isfile(sm_aas_fout) and (fin_ffnpaths is None or \
         os.path.isfile(sm_nucs_fout)):
         logging.info("requested supermatrices already exist - moving on")
         return()
     
     logging.info("reading core genome") 
-    coregenome = read_genes(args.coregenome)
+    coregenome = read_genes(fin_coregenome)
     orthogroups = coregenome["orthogroup"].unique()
     genomes = coregenome["genome"].unique()
     logging.info(f"detected {len(orthogroups)} orthogroups in "
         f"{len(genomes)} genomes")
+    
+    if core_filter != 0 or max_cores != 0:
+        logging.info(f"applying core filter of {core_filter} and maximum "
+            f"number of core genes of {max_cores}")
+        corefams = determine_corefams(coregenome, core_filter, max_cores)
+        coregenome = filter_groups(coregenome, corefams)
+        orthogroups = coregenome["orthogroup"].unique()
 
     logging.info("removing same-genome copies of core genes")
     coregenome = coregenome.drop_duplicates(["genome", "orthogroup"], 
@@ -312,7 +326,7 @@ def run_supermatrix(args):
     else:
     
         logging.info("gathering amino acid sequences of orthogroups")
-        faa_fins = read_fastapaths(args.faapaths)
+        faa_fins = read_fastapaths(fin_faapaths)
         os.makedirs(seqs_aas_dio, exist_ok = True)
         gather_orthogroup_sequences(coregenome, faa_fins, seqs_aas_dio)
         
@@ -329,7 +343,7 @@ def run_supermatrix(args):
     logging.info("concatenating amino acid alignments")
     construct_supermatrix(coregenome, alis_aas_fios, sm_aas_fout)
 
-    if not args.ffnpaths is None:
+    if not fin_ffnpaths is None:
       
         seqs_nucs_fios = make_paths(orthogroups, seqs_nucs_dio, ".fasta")
         alis_aas_fios = make_paths(orthogroups, alis_aas_dio, ".aln")
@@ -342,7 +356,7 @@ def run_supermatrix(args):
         else:
     
             logging.info("gathering nucleotide sequences of orthogroups")
-            ffn_fins = read_fastapaths(args.ffnpaths)
+            ffn_fins = read_fastapaths(fin_ffnpaths)
             os.makedirs(seqs_nucs_dio, exist_ok = True)
             gather_orthogroup_sequences(coregenome, ffn_fins, seqs_nucs_dio)
             
