@@ -4,7 +4,7 @@
 # interface.
 
 __author__ = "Stijn Wittouck"
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 import argparse
 import logging
@@ -20,7 +20,8 @@ VERSION
     {0}
 AUTHORS
     Stijn Wittouck (development)
-    Sarah Lebeer (supervision)
+    Sarah Lebeer (PI)
+    Vera van Noort (PI)
 USAGE
     scarap [-h] <task> <task-specific arguments>
 MODULES
@@ -28,8 +29,8 @@ MODULES
     core          --> infer a core genome from a set of faa files
     build         --> build a profile database for a core/pangenome
     search        --> search query genes in a profile database
-    checkgenomes  --> assess the quality of genomes in a core genome
-    checkgroups   --> assess the quality of orthogroups in a core genome
+    checkgenomes  --> assess the genomes in a core genome
+    checkgroups   --> assess the orthogroups in a core genome
     filter        --> filter the genomes/orthogroups in a pangenome
     concat        --> construct a concatenated core orthogroup alignment from a
                       core genome
