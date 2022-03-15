@@ -29,7 +29,7 @@ def run_pan_nonhier(args):
         logging.info("existing pangenome detected - moving on")
         return()
     
-    faafins = read_fastapaths(args.faapaths)
+    faafins = read_fastapaths(args.faa_files)
     
     if args.method in ["O-B", "O-D"]:
 
@@ -68,7 +68,7 @@ def run_pan_hier(args):
         speciesdict.setdefault(row.species, []).append(row.genome)
 
     logging.info("processing faapaths")
-    faafins = read_fastapaths(args.faapaths)
+    faafins = read_fastapaths(args.faa_files)
     genomedict = {}
     for faafin in faafins:
         genome = filename_from_path(faafin)
@@ -86,7 +86,7 @@ def run_pan_hier(args):
         os.makedirs(dout, exist_ok = True)
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths, faapathsfio)
-        run_pan_nonhier(Namespace(faapaths = faapathsfio, outfolder = dout,
+        run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
             threads = args.threads, method = args.method))
         speciespanfio = os.path.join(dout, "pangenome.tsv")
         speciespanfios.append(speciespanfio)
@@ -101,9 +101,8 @@ def run_pan_hier(args):
     logging.info("started building metapangenome using representatives")
     metapandio = os.path.join(args.outfolder, "metapangenome")
     os.makedirs(metapandio, exist_ok = True)
-    run_pan_nonhier(Namespace(faapaths = reprpathsfio,
-        outfolder = metapandio, threads = args.threads,
-        method = args.method))
+    run_pan_nonhier(Namespace(faa_files = reprpathsfio, outfolder = metapandio, 
+        threads = args.threads, method = args.method))
 
     logging.info("inflating metapangenome with species pangenomes")
     speciespans = [read_genes(panfin) for panfin in speciespanfios]
@@ -121,12 +120,12 @@ def run_pan_hier(args):
     
 def run_build(args): 
     
-    fin_faapaths = args.faapaths
+    fin_faapaths = args.faa_files
     fin_pangenome = args.pangenome
     dout = args.outfolder
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
-    max_cores = args.max_cores
+    max_cores = args.max_core_genes
     threads = args.threads
     
     # define output paths/folders
@@ -206,7 +205,7 @@ def run_build(args):
     
 def run_search(args): 
     
-    fin_qpaths = args.qpaths
+    fin_qpaths = args.faa_files
     din_db = args.db
     dout = args.outfolder
     threads = args.threads
@@ -275,14 +274,14 @@ def run_filter(args):
         pangenome = filter_groups(pangenome, orthogroups)
     write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
 
-def run_supermatrix(args):
+def run_concat(args):
   
-    fin_faapaths = args.faapaths
+    fin_faapaths = args.faa_files
     fin_coregenome = args.coregenome
     dout = args.outfolder
     core_filter = args.core_filter
-    max_cores = args.max_cores
-    fin_ffnpaths = args.ffnpaths
+    max_cores = args.max_core_genes
+    fin_ffnpaths = args.ffn_files
 
     sm_aas_fout = os.path.join(dout, "supermatrix_aas.fasta")
     sm_nucs_fout = os.path.join(dout, "supermatrix_nucs.fasta")
@@ -407,7 +406,7 @@ def run_sample(args):
         return()
 
     logging.info("reading core genome") 
-    core = read_genes(args.coregenome)
+    core = read_genes(args.pangenome)
     fams = core["orthogroup"].unique()
     genomes = core["genome"].unique()
     logging.info(f"detected {len(fams)} orthogroups in "
@@ -428,7 +427,7 @@ def run_sample(args):
     else:
     
         logging.info("gathering sequences of orthogroups")
-        fins_faas = read_fastapaths(args.fastapaths)
+        fins_faas = read_fastapaths(args.fasta_files)
         gather_orthogroup_sequences(core, fins_faas, dio_seqs)
     
     logging.info("creating database for alignments")
@@ -568,25 +567,25 @@ def run_fetch(args):
     os.makedirs(dout_seqs, exist_ok = True)
 
     logging.info("reading genes") 
-    genes = read_genes(args.genes)
+    genes = read_genes(args.pangenome)
     fams = genes["orthogroup"].unique()
     genomes = genes["genome"].unique()
     logging.info(f"detected {len(fams)} orthogroups in "
         f"{len(genomes)} genomes")
         
     logging.info("gathering sequences of orthogroups")
-    fins_fastas = read_fastapaths(args.fastapaths)
+    fins_fastas = read_fastapaths(args.fasta_files)
     gather_orthogroup_sequences(genes, fins_fastas, dout_seqs)
     
 def run_core(args):
   
-    fin_faapaths = args.faapaths
+    fin_faapaths = args.faa_files
     dout = args.outfolder
     method = args.method
     seeds = args.seeds
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
-    max_cores = args.max_cores
+    max_cores = args.max_core_genes
     threads = args.threads
     
     # define paths
@@ -611,15 +610,16 @@ def run_core(args):
         write_tsv(pd.DataFrame({"path": fins_nonseeds}), fout_nonseedpaths)
 
     logging.info("STEP 1 - inferring pangenome of seed genomes")
-    args_pan = Namespace(faapaths = fout_seedpaths, outfolder = dout_seedpan,
+    args_pan = Namespace(faa_files = fout_seedpaths, outfolder = dout_seedpan,
         method = method, threads = threads)
     run_pan(args_pan)
     
     logging.info("STEP 2 - building database of seed core genes and searching "
         "in seed faas")
-    args_build = Namespace(faapaths = fout_seedpaths, pangenome = fout_seedpan,
+    args_build = Namespace(faa_files = fout_seedpaths, pangenome = fout_seedpan,
         outfolder = dout_seedcore, core_prefilter = core_prefilter,
-        core_filter = core_filter, max_cores = max_cores, threads = threads)
+        core_filter = core_filter, max_core_genes = max_cores, 
+        threads = threads)
     run_build(args_build)
     
     if os.stat(fout_nonseedpaths).st_size == 0:
@@ -628,7 +628,7 @@ def run_core(args):
         return()
 
     logging.info("STEP 3 - identifying core orthogroups in non-seed genomes")
-    args_search = Namespace(qpaths = fout_nonseedpaths, db = dout_seedcore,
+    args_search = Namespace(faa_files = fout_nonseedpaths, db = dout_seedcore,
         outfolder = dout, threads = threads)
     run_search(args_search)
     

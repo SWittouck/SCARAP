@@ -21,7 +21,7 @@ def run_pan_withchecks(args):
     logging.info("welcome to the pan task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.faapaths)
+    check_fastas(args.faa_files)
     if not args.species is None:
         check_infile(args.species)
 
@@ -41,9 +41,9 @@ def run_build_withchecks(args):
     logging.info("welcome to the build task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.faapaths)
+    check_fastas(args.faa_files)
     check_infile(args.pangenome)
-    faapaths = read_fastapaths(args.faapaths)
+    faapaths = read_fastapaths(args.faa_files)
     args.core_prefilter = correct_freq(args.core_prefilter, "core prefilter")
     args.core_filter = correct_freq(args.core_filter, "core filter")
 
@@ -58,7 +58,7 @@ def run_search_withchecks(args):
     logging.info("welcome to the search task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.qpaths)
+    check_fastas(args.faa_files)
     check_db(args.db)
 
     logging.info("checking dependencies")
@@ -97,35 +97,35 @@ def run_filter_withchecks(args):
 
     run_filter(args)
 
-def run_supermatrix_withchecks(args):
+def run_concat_withchecks(args):
 
-    logging.info("welcome to the supermatrix task")
+    logging.info("welcome to the concat task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.faapaths)
+    check_fastas(args.faa_files)
     check_infile(args.coregenome)
-    if not args.ffnpaths is None:
-        check_fastas(args.ffnpaths)
+    if not args.ffn_files is None:
+        check_fastas(args.ffn_files)
     args.core_filter = correct_freq(args.core_filter, "core filter")
 
     logging.info("checking dependencies")
     check_mafft() 
     
-    run_supermatrix(args)
+    run_concat(args)
 
 def run_sample_withchecks(args):
 
     logging.info("welcome to the sample task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.fastapaths)
-    fastapaths = read_fastapaths(args.fastapaths)
+    check_fastas(args.fasta_files)
+    fastapaths = read_fastapaths(args.fasta_files)
     n_genomes = len(fastapaths)
     if args.max_genomes > n_genomes:
         args.max_genomes = n_genomes
         logging.info(f"max_genomes reduced to {args.max_genomes}, since "
             "that's the total number of genomes")
-    check_infile(args.coregenome)
+    check_infile(args.pangenome)
     if args.identity > 100:
         logging.error("identity should be between 0 and 1")
         sys.exit(1)
@@ -162,7 +162,7 @@ def run_fetch_withchecks(args):
     logging.info("welcome to the fetch task")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.fastapaths)
+    check_fastas(args.fasta_files)
     check_infile(args.genes)
     
     run_fetch(args)
@@ -172,8 +172,8 @@ def run_core_withchecks(args):
     logging.info("welcome to the core pipeline")
 
     logging.info("checking arguments other than output folder")
-    check_fastas(args.faapaths)
-    fastapaths = read_fastapaths(args.faapaths)
+    check_fastas(args.faa_files)
+    fastapaths = read_fastapaths(args.faa_files)
     n_genomes = len(fastapaths)
     if args.seeds > n_genomes:
         args.seeds = n_genomes
