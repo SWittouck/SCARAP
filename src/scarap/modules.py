@@ -277,7 +277,7 @@ def run_filter(args):
 def run_concat(args):
   
     fin_faapaths = args.faa_files
-    fin_coregenome = args.coregenome
+    fin_pangenome = args.pangenome
     dout = args.outfolder
     core_filter = args.core_filter
     max_cores = args.max_core_genes
@@ -297,7 +297,7 @@ def run_concat(args):
         return()
     
     logging.info("reading core genome") 
-    coregenome = read_genes(fin_coregenome)
+    coregenome = read_genes(fin_pangenome)
     orthogroups = coregenome["orthogroup"].unique()
     genomes = coregenome["genome"].unique()
     logging.info(f"detected {len(orthogroups)} orthogroups in "

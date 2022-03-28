@@ -103,7 +103,7 @@ def run_concat_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_fastas(args.faa_files)
-    check_infile(args.coregenome)
+    check_infile(args.pangenome)
     if not args.ffn_files is None:
         check_fastas(args.ffn_files)
     args.core_filter = correct_freq(args.core_filter, "core filter")
