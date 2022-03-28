@@ -1,6 +1,6 @@
 # SCARAP: toolkit for comparative genomics of prokaryotes
 
-SCARAP is short for scalable and rapid pangenomes. Pangenome inference is SCARAP's main feature, but it also contains a number of other useful tools for comparative genomics of prokaryotes, such as: pangenome profile database construction and searching, rapid core genome inference, calculation of ANI/AAI-like metrics, genome clustering and dereplication and the construction of concatenated core gene alignments ("supermatrices"). SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
+SCARAP is a toolkit with modules for various tasks related to comparative genomics of prokaryotes. SCARAP has been designed to be fast and scalable. Its main feature is pangenome inference, but it also has modules for direct core genome inference (without inferring the full pangenome), subsampling representatives from a (large) set of genomes and constructing a concatenated core gene alignment ("supermatrix") that can later be used for phylogeny inference.  SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
 
 ## Dependencies
 
@@ -12,129 +12,75 @@ Essential dependencies:
     * [ete3](http://etetoolkit.org/) version >= 3.1.1
     * [scipy](https://www.scipy.org/) version >= 1.4.1
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
-* [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11 or 12
-
-Dependencies for the build, search and core-pipeline modules: 
-
-* [HMMER](http://hmmer.org/) version >= 3.1b2
-
-Dependencies when using [OrthoFinder](https://github.com/davidemms/OrthoFinder) for pangenome inference:
-
-* [OrthoFinder](https://github.com/davidemms/OrthoFinder) version >= 2.1.2
-* [blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) version >= 2.6.0
-* [MCL](https://www.micans.org/mcl/index.html?sec_software) version >= 14-137
+* [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11, 12 or 13
 
 ## Usage
 
-SCARAP is able to perform a number of specific tasks related to prokaryotic comparative genomics (see also `scarap -h`):
+SCARAP is able to perform a number of specific tasks related to prokaryotic comparative genomics (see also `scarap -h`). 
+
+The most useful modules of SCARAP are the following: 
 
 * `pan`: infer a pangenome from a set of faa files
-* `build`: build a profile HMM database for a core/pangenome
-* `search`: search query genes in a core/pangenome database
-* `checkgenomes`: assess the quality of genomes in a core genome
-* `checkgroups`: assess the quality of orthogroups in a core genome
+* `core`: infer a core genome from a set of faa files
+* `sample`: sample a subset of representative genomes
+
+Modules for other useful tasks are also available: 
+
+* `build`: build a profile database for a core/pangenome
+* `search`: search query genes in a profile database
+* `checkgenomes`: assess the genomes in a core genome
+* `checkgroups`: assess the orthogroups in a core genome
 * `filter`: filter the genomes/orthogroups in a pangenome
-* `supermatrix`: construct a concatenated core orthogroup alignment from a core genome (same-genome copies of orthogroups are removed)
-* `clust`: cluster a set of genomes using a core genome, given a maximum number of clusters and/or an identity threshold (same-genome copies of orthogroups are removed)
-
-A full core and pangenome pipeline are also implemented:
-
-* `pan-pipeline`: infer a pangenome, build a profile HMM database and train score cutoffs from a set of faa files
-* `core-pipeline`: infer a core genome, build a profile HMM database and train score cutoffs from a set of faa files
+* `concat`: construct a concatenated core orthogroup alignment from a core genome
+* `fetch`: fetch sequences and store in fasta per orthogroup
 
 ### Inferring a pangenome
 
 If you want to infer the pangenome of a set of genomes, you only need their faa files (fasta files with protein sequences) as input. If the faa files are stored in a folder `faas`, you can infer the pangenome using 16 threads by running: 
 
-    ls faas/*.faa > faapaths.txt
-    scarap pan faapaths.txt pan -t 16
+      scarap pan ./faas ./pan -t 16
     
 The pangenome will be stored in `pan/pangenome.tsv`. 
 
-The above example will use the builtin "FH" strategy to infer the pangenome; it is fast and scales more or less linearly with the number of input genomes. If you prefer to use OrthoFinder for pangenome inference, you can run:
+The pangenome is stored in a "long format": a table with the columns gene, genome and orthogroup. 
 
-    ls faas/*.faa > faapaths.txt
-    scarap pan faapaths.txt pan -d O-B -t 16
-    
-This will be a bit slower though.
+### Inferring a core genome 
 
-### Searching a pangenome
+If you want to infer the core genome of a set of genomes directly, without inferring the full pangenome first, you can also do this with SCARAP. The reason you might want to do this, is because it is faster and because you sometimes don't need more than the core genome (e.g. when you are planning to infer a phylogeny). 
 
-Disclaimer: many aspects of this pipeline can still change, especially the way that hmmer score cutoffs are trained.
+You can infer the core genome, given a set of faa files in a folder `faas`, in the following way:
 
-**Quick version**
+      scarap core ./faas ./core -t 16
+      
+The core genome will be stored in `core/genes.tsv`. 
 
-If you want to infer a pangenome of your genomes as well as build a pangenome database that you can later query with one or more genes of interest, you can run:
+### Subsampling a set of genomes 
 
-    ls faas/*.faa > faapaths.txt
-    scarap pan-pipeline faapaths.txt pan -t 16
+If you have a (large) dataset of genomes that you wish to subsample in a representative way, you can do this using the `sample` module. You will need to precompute the pangenome or core genome to do this; SCARAP calculates average nucleotide identity (ANI) or core nucleotide identity (cANI) values in the subsampling process, and it uses the single-copy orthogroups from a pan- or core genome to do this. 
 
-If you then want to identify whether some genes of interest (let's say in a file called `querygenes.fasta`) are present in the pangenome database, you can run:
+For example, if you want to sample 100 genomes given a set of faa files in a folder `faas`: 
 
-    echo querygenes.fasta > querypath.txt
-    scarap search querypath.txt pangenome/db hits
+      scarap core ./faas ./core -t 16
+      scarap sample ./faas ./core/genes.tsv ./representatives -m 100 -t 16
+      
+The representative genomes will be stored in `representatives/seeds.txt`. 
 
-This will produce a `hits` output folder with the file `hits.tsv`.
+### Building a "supermatrix" for a set of genomes
 
-**Detailed version**
+You can build a concatenated alignment of core genes ("supermatrix") for a set of genomes using the `concat` module. 
 
-The pangenome pipeline can also be performed by running individual tasks:
+Let's say you want to build a supermatrix of 100 core genes for a set of genomes, with faa files given in a folder `faas`: 
 
-    ls faas/*.faa > faapaths.txt
-    scarap pan faapaths.txt pan
-    scarap build faapaths.txt pan/pangenome.tsv db
-    scarap search faapaths.txt db pan2 -s pan -p pan/pangenome.tsv
+      scarap core ./faas ./core -m 100 -t 16
+      scarap concat ./faas ./core/genes.tsv ./supermatrix -t 16
+      
+The amino acid supermatrix will be saved in `supermatrix/supermatrix_aas.fasta`. 
+      
+If you want to produce a nucleotide-level supermatrix, this can be achieved by giving a folder with ffn files (nucleotide sequences of predicted genes) as an additional argument: 
 
-The final `search` step is required because it will train a hmmer score cutoff for each profile HMM in the pangenome database and add these cutoffs to the database. In addition, it produces an orthogroup assignment for each protein in the set of input genomes (`pan2/hits.tsv`). Importantly, these assignments are not always the same as the orthogroup assignments listed in `pan/pangenome.tsv` because they are produced by a hmmer search with orthogroup-specific cutoffs, while the original orthogroup assignments have been produced by the pangenome inference process. A comparison between these two strategies of orthogroup assignment could be interesting.
-
-### Inferring a core genome only
-
-Let's say we want to infer the core genome for a set of genomes and we have one faa file (amino acid sequences of predicted genes) per genome in the folder `faas`. This can be done using the core pipeline of SCARAP, which can be a lot faster than full pangenome inference. 
-
-**Quick version**
-
-To get the core genome, we can simply run the following commands:
-
-    ls faas/*.faa > faapaths.txt
-    scarap core-pipeline faapaths.txt core -t 16
-
-This will create the output folder `core`, run SCARAP with 16 threads and produce the file `coregenome.tsv`. This output tsv file contains the core orthogroups and has the columns gene, genome and orthogroup.
-
-If we now want to construct a supermatrix (concatenated alignment) of these core orthogroups, we could do it as follows:
-
-    scarap supermatrix faapaths.txt core/coregenome.tsv supermatrix
-
-This will create a `supermatrix` output folder, with in it a file supermatrix.fasta.
-
-And that's it! Three lines of code to get from the faa files to the supermatrix fasta file, ready to start constructing your phylogenetic tree.
-
-**Detailed version**
-
-If we want more fine-grained control, we could achieve the same result by running individual SCARAP tasks. These individual tasks also give insight in how the core genome pipeline actually works.
-
-**Step 1:** infer the pangenome of a random subset of seed genomes (e.g. 30).
-
-    mkdir seeds cands
-    ls faas/*.faa > faapaths.txt
-    shuf -n 30 faapaths.txt > seeds/faapaths.txt
-    scarap pan seeds/faapaths.txt seeds/pan
-
-**Step 2:** build a profile HMM database of "candidate core orthogroups" that are present in at least M seed genomes (e.g. 25).
-
-    scarap build seeds/faapaths.txt seeds/pan/pangenome.tsv cands/db -m 25
-
-**Step 3:** identify the candidate core genes in the full set of genomes by searching all proteins of all genomes against the database of candidate core genes.
-
-    scarap search faapaths.txt cands/db cands/core -y core
-
-**Step 4:** identify the core genes from the candidates by imposing a minimum percentage presence cutoff (e.g. 98%) in the full set of genomes.
-
-    scarap checkgroups cands/core/coregenome.tsv cands/groups
-    awk '{ if ($2 > 0.98) { print $1 } }' cands/groups/orthogroups.tsv \
-      > orthogroups.txt
-    scarap filter cands/core/coregenome.tsv core -o orthogroups.txt
-
-The output folder `core` will now contain the file coregenome.tsv.
+      scarap concat ./faas ./core/genes.tsv ./supermatrix -n ./ffns -t 16
+      
+The nucleotide-level supermatrix will be saved in `supermatrix/supermatrix_nucs.fasta`. 
 
 ## License
 
@@ -146,6 +92,6 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 ## Citation
 
-When you use  for your publication, please cite:
+When you use SCARAP for your publication, please cite:
 
 [Wittouck, S., Wuyts, S., Meehan, C. J., van Noort, V., & Lebeer, S. (2019). A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex. mSystems, 4(5), e00264–19.](https://doi.org/10.1128/mSystems.00264-19)
