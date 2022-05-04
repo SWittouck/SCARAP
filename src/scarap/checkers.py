@@ -90,7 +90,7 @@ def check_fasta(path):
             if not any(fasta):
                 raise Exception()
         except Exception:
-            logging.error("one or more fasta files are not in fasta format")
+            logging.error(f"file {path} is not in fasta format")
             sys.exit(1)
 
 # works for dir with fastas or file with fastapaths
