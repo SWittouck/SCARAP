@@ -163,7 +163,7 @@ def run_fetch_withchecks(args):
 
     logging.info("checking arguments other than output folder")
     check_fastas(args.fasta_files)
-    check_infile(args.genes)
+    check_infile(args.pangenome)
     
     run_fetch(args)
 
