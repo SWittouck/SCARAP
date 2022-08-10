@@ -509,7 +509,7 @@ def run_sample(args):
         hits = pd.read_csv(f"{dio_alis}/hits.tsv", sep = "\t", 
             usecols = [1, 3], names = ["gene", "identity"])
         hits = core.merge(hits, on = "gene", how = "right")
-        hits = hits.drop(["gene"], axis = 1)
+        hits = hits.drop(["gene", "orthogroup"], axis = 1)
 
         # calculate mean/median identity with seed per genome
         if args.method == "median":
