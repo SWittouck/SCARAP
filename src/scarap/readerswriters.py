@@ -104,7 +104,7 @@ def extract_genes(fins_genomes):
         genes_genome = re.compile(">([^\n\t ]+)").findall(fasta)
         genes_genome = pd.DataFrame({"gene": genes_genome})
         genes_genome.loc[:, "genome"] = genome
-        genes = genes.append(genes_genome)
+        genes = pd.concat([genes, genes_genome])
 
     return(genes)
   
