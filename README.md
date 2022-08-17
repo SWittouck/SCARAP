@@ -56,7 +56,7 @@ The core genome will be stored in `core/genes.tsv`.
 
 ### Subsampling a set of genomes 
 
-If you have a (large) dataset of genomes that you wish to subsample in a representative way, you can do this using the `sample` module. You will need to precompute the pangenome or core genome to do this; SCARAP calculates average nucleotide identity (ANI) or core nucleotide identity (cANI) values in the subsampling process, and it uses the single-copy orthogroups from a pan- or core genome to do this. 
+If you have a (large) dataset of genomes that you wish to subsample in a representative way, you can do this using the `sample` module. You will need to precompute the pangenome or core genome to do this; SCARAP calculates average amino acid identity (AAI) or core amino acid identity (cAAI) values in the subsampling process, and it uses the single-copy orthogroups from a pan- or core genome to do this. 
 
 For example, if you want to sample 100 genomes given a set of faa files in a folder `faas`: 
 
@@ -64,6 +64,13 @@ For example, if you want to sample 100 genomes given a set of faa files in a fol
       scarap sample ./faas ./core/genes.tsv ./representatives -m 100 -t 16
       
 The representative genomes will be stored in `representatives/seeds.txt`. 
+
+Important remark: by default, the per-gene amino acid identity values are estimated from alignment scores per column by MMseqs ([alignment mode 1](https://github.com/soedinglab/MMseqs2/wiki#how-does-mmseqs2-compute-the-sequence-identity)). For AAI values > 90%, these estimations are on average smaller than the exact values. It is possible to calculate exact AAI values by adding the `--exact` option to the sample module, but this will be slower. 
+
+You can also sample genomes based on average nucleotide identity (ANI) or core nucleotide identity (cANI) values. In that case, you need to supply nucleotide sequences of predicted genes, e.g. in a folder `ffns`: 
+
+      scarap core ./faas ./core -t 16
+      scarap sample ./ffns ./core/genes.tsv ./representatives -m 100 -t 16
 
 ### Building a "supermatrix" for a set of genomes
 
