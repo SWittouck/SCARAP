@@ -213,12 +213,12 @@ def train_cutoffs(hits, pangenome):
 def process_scores(hits, cutoffs, top_profiles = True):
     hits = pd.merge(hits, cutoffs, how = "left")
     hits = hits[hits.score >= hits.cutoff]
-    ixs_to_keep = hits.index
     if top_profiles:
-        ixs_to_keep = hits[["gene", "score"]].groupby("gene").idxmax().score
-    genes = hits.loc[ixs_to_keep, :][["gene", "profile"]]
-    genes = genes.rename(columns = {"profile": "orthogroup"})
-    return(genes)
+        hits = hits.sort_values("score").\
+            drop_duplicates(["gene"], keep = "last")
+    hits = hits[["gene", "profile"]]
+    hits = hits.rename(columns = {"profile": "orthogroup"})
+    return(hits)
 
 def determine_corefams(pan, core_filter, max_cores = 0):
     fams = checkgroups(pan)

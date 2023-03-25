@@ -5,6 +5,7 @@ import re
 import pandas as pd
 
 from Bio import SeqIO, AlignIO
+from concurrent.futures import ProcessPoolExecutor
 from io import StringIO
 
 from utils import *
@@ -93,19 +94,24 @@ def read_pangenome_orthofinder(din_orthofinder):
     pangenome = genes_assigned.append(genes_unassigned)
     return(pangenome)
 
-def extract_genes(fins_genomes):
+def extract_genetable(fin_genome):
+    "Extracts a gene table from an ffn/faa file."
+    
+    genome = filename_from_path(fin_genome)
+    with open_smart(fin_genome) as hin:
+        fasta = hin.read()
+    regex = re.compile("^>([^\n\t ]+)", re.MULTILINE)
+    genes_genome = regex.findall(fasta)
+    genes_genome = pd.DataFrame({"gene": genes_genome})
+    genes_genome.loc[:, "genome"] = genome
+    return(genes_genome)
 
-    genes = pd.DataFrame()
-
-    for fin_genome in fins_genomes:
-        genome = filename_from_path(fin_genome)
-        with open_smart(fin_genome) as hin:
-            fasta = hin.read()
-        genes_genome = re.compile("^>([^\n\t ]+)", re.MULTILINE).findall(fasta)
-        genes_genome = pd.DataFrame({"gene": genes_genome})
-        genes_genome.loc[:, "genome"] = genome
-        genes = pd.concat([genes, genes_genome])
-
+def extract_genes(fins_genomes, threads = 1):
+    "Extracts a gene table from multiple ffn/faa files"
+    
+    with ProcessPoolExecutor(max_workers = threads) as executor:
+        genes = executor.map(extract_genetable, fins_genomes)
+    genes = pd.concat(genes)
     return(genes)
   
 def fastas2stockholm(fins_alis, fout_sto):

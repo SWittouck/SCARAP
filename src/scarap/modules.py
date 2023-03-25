@@ -224,7 +224,10 @@ def run_search(args):
     # run profile search (function does its own logging)
     fins_alis = [os.path.join(din_alis, f) for f in os.listdir(din_alis)]
     fins_queries = read_fastapaths(fin_qpaths)
-    run_profilesearch(fins_queries, fins_alis, fout_hits, dout_tmp, threads)
+    if os.path.isfile(fout_hits):
+        logging.info("existing mmseqs2 hits detected - moving on")
+    else:
+        run_profilesearch(fins_queries, fins_alis, fout_hits, dout_tmp, threads)
     
     logging.info("reading hits and score cutoffs")
     colnames = ["gene", "profile", "score"]
@@ -237,7 +240,9 @@ def run_search(args):
     
     logging.info("applying score cutoffs to hits")
     genes = process_scores(hits, cutoffs)
-    genes_genomes = extract_genes(fins_queries)
+    logging.info("extracting genome names from faa files")
+    genes_genomes = extract_genes(fins_queries, threads = threads)
+    logging.info("merging search results and genome names")
     genes = pd.merge(genes_genomes, genes, how = "right")
     
     logging.info("writing output files")
