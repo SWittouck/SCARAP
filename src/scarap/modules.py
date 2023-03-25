@@ -153,7 +153,7 @@ def run_build(args):
         
     if core_prefilter != 0:
         logging.info(f"applying core prefilter of {core_prefilter}")
-        corefams = determine_corefams(pangenome, core_filter)
+        corefams = determine_corefams(pangenome, core_prefilter)
         pangenome = filter_groups(pangenome, corefams)
 
     logging.info("gathering sequences of orthogroups")
