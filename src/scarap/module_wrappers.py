@@ -46,6 +46,12 @@ def run_build_withchecks(args):
     faapaths = read_fastapaths(args.faa_files)
     args.core_prefilter = correct_freq(args.core_prefilter, "core prefilter")
     args.core_filter = correct_freq(args.core_filter, "core filter")
+    
+    # give warning if core filter or max core genes is given without prefilter
+    if args.core_filter != 0 or args.max_core_genes != 0:
+        if args.core_prefilter == 0:
+            logging.warning("a core filter or maximum number of core genes was "
+                "given without a core prefilter - this can be needlessly slow")
 
     logging.info("checking dependencies")
     check_mmseqs()
