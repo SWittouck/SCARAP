@@ -190,6 +190,7 @@ def run_build(args):
         for file in os.listdir(dout_alis):
             if not os.path.splitext(file)[0] in corefams:
                 os.remove(os.path.join(dout_alis, file))
+        logging.info(f"{len(corefams)} core genes were identified")
     
     logging.info("applying score cutoffs to pangenome")
     genes = process_scores(hits, cutoffs)
