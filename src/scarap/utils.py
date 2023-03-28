@@ -83,3 +83,7 @@ def read_lines(fin):
     with open(fin) as hin:
         lines = [line.strip() for line in hin.readlines()]
     return(lines)
+  
+def listpaths(folder):
+    paths = [os.path.join(folder, f) for f in os.listdir(folder)]
+    return(paths)

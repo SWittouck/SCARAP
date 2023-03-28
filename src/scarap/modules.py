@@ -58,66 +58,79 @@ def run_pan_nonhier(args):
         infer_pangenome(faafins, args.method, args.outfolder, args.threads)
 
 def run_pan_hier(args):
-
-    logging.info("processing species file")
-    genomes_species = read_species(args.species)
-    genomes_species.species = [species.replace(" ", "_") for species in
-        genomes_species.species]
-    speciesdict = {}
-    for ix, row in genomes_species.iterrows():
-        speciesdict.setdefault(row.species, []).append(row.genome)
-
-    logging.info("processing faapaths")
-    faafins = read_fastapaths(args.faa_files)
-    genomedict = {}
-    for faafin in faafins:
-        genome = filename_from_path(faafin)
-        genomedict[genome] = faafin
-
-    logging.info("started building pangenomes of species")
+  
+    logging.info("creating genome table with species and faa paths")
+    genometbl1 = read_species(args.species)
+    genometbl1.species = [sp.replace(" ", "_") for sp in genometbl1.species]
+    faapaths = read_fastapaths(args.faa_files)
+    genomes = [filename_from_path(path) for path in faapaths]
+    genometbl2 = pd.DataFrame({"faapath": faapaths, "genome": genomes})
+    genometbl = pd.merge(genometbl1, genometbl2)
+    
+    logging.info("creating the necessary subfolders")
     speciespansdio = os.path.join(args.outfolder, "speciespangenomes")
+    pseudogenomesdio = os.path.join(args.outfolder, "pseudogenomes")
+    pseudogenomesfio = os.path.join(args.outfolder, "pseudogenomes.tsv")
+    pseudopandio = os.path.join(args.outfolder, "pseudopangenome")
+    pseudopanfio = os.path.join(args.outfolder, "pseudopangenome.tsv")
+    pangenomefout = os.path.join(args.outfolder, "pangenome.tsv")
     os.makedirs(speciespansdio, exist_ok = True)
-    reprpaths = []
-    speciespanfios = []
-    for species, genomes in speciesdict.items():
+    os.makedirs(pseudogenomesdio, exist_ok = True)
+    os.makedirs(pseudopandio, exist_ok = True)
+    
+    logging.info("PHASE 1: inferring species-level pangenomes")
+    for species, genomesubtbl in genometbl.groupby("species"):
+        speciespanfio = os.path.join(speciespansdio, species + ".tsv")
+        if os.path.exists(speciespanfio):
+            continue
         logging.info(f"started inferring pangenome of {species}")
-        faapaths = [genomedict[genome] for genome in genomes]
         dout = os.path.join(speciespansdio, species)
         os.makedirs(dout, exist_ok = True)
+        faapaths_sub = genomesubtbl["faapath"].values.tolist()
         faapathsfio = os.path.join(dout, "faapaths.txt")
-        write_lines(faapaths, faapathsfio)
+        write_lines(faapaths_sub, faapathsfio)
         run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
             threads = args.threads, method = args.method))
-        speciespanfio = os.path.join(dout, "pangenome.tsv")
-        speciespanfios.append(speciespanfio)
-        reprfio = os.path.join(dout, species + ".faa")
-        reprpaths.append(reprfio)
-        speciespan = read_genes(speciespanfio)
-        collapse_pangenome(speciespan, faapathsfio, reprfio, species,
-            os.path.join(dout, "temp"))
-    reprpathsfio = os.path.join(args.outfolder, "reprpaths.txt")
-    write_lines(reprpaths, reprpathsfio)
-
-    logging.info("started building metapangenome using representatives")
-    metapandio = os.path.join(args.outfolder, "metapangenome")
-    os.makedirs(metapandio, exist_ok = True)
-    run_pan_nonhier(Namespace(faa_files = reprpathsfio, outfolder = metapandio, 
-        threads = args.threads, method = args.method))
-
-    logging.info("inflating metapangenome with species pangenomes")
-    speciespans = [read_genes(panfin) for panfin in speciespanfios]
-    speciespans = pd.concat(speciespans)
-    speciespans = speciespans.rename(columns = {"orthogroup": "speciesfam"})
-    speciespans = pd.merge(speciespans, genomes_species)
-    speciespans.speciesfam = [species + "-" + speciesfam for species,
-        speciesfam in zip(speciespans.species, speciespans.speciesfam)]
-    metapan = read_genes(os.path.join(metapandio, "pangenome.tsv"))
-    metapan = metapan.rename(columns = {"gene": "speciesfam",
-        "genome": "species"})
-    pangenome = pd.merge(speciespans, metapan)
-    pangenome = pangenome[["gene", "genome", "orthogroup"]]
-    write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
+        shutil.move(os.path.join(dout, "pangenome.tsv"), speciespanfio)
+        shutil.rmtree(dout)
     
+    logging.info("PHASE 2: constructing pseudogenome per species")
+    n_species = genometbl["species"].nunique()
+    pseudogenomes = [None] * n_species
+    for ix, speciespanfio in enumerate(listpaths(speciespansdio)):
+        speciespan = read_genes(speciespanfio)
+        tmpdio = os.path.join(args.outfolder, "temp")
+        pseudogenomes[ix] = create_pseudogenome(speciespan, faapaths, tmpdio)
+        pseudogenomes[ix]["species"] = filename_from_path(speciespanfio)
+    pseudogenomes = pd.concat(pseudogenomes)
+    write_tsv(pseudogenomes, pseudogenomesfio)
+    
+    logging.info("PHASE 3: inferring pseudopangenome")
+    pseudogenomes = pseudogenomes.rename(columns = {"species": "orthogroup"})
+    gather_orthogroup_sequences(pseudogenomes, faapaths, pseudogenomesdio)
+    run_pan_nonhier(Namespace(faa_files = pseudogenomesdio, 
+        outfolder = pseudopandio, threads = args.threads, method = args.method))
+    shutil.move(os.path.join(pseudopandio, "pangenome.tsv"), pseudopanfio)
+    shutil.rmtree(pseudogenomesdio)
+    shutil.rmtree(pseudopandio)
+    
+    logging.info("PHASE 4: inflating pseudopangenome with species pangenomes")
+    pangenomes = [None] * len(os.listdir(speciespansdio))
+    for ix, speciespanfio in enumerate(listpaths(speciespansdio)):
+        pangenomes[ix] = read_genes(speciespanfio)
+        pangenomes[ix]["species"] = filename_from_path(speciespanfio)
+    pangenomes = pd.concat(pangenomes)
+    pangenomes = pangenomes.rename(columns = {"orthogroup": "speciesfam"})
+    pseudopan = read_genes(pseudopanfio)
+    pseudopan = pseudopan.rename(columns = {"genome": "species"})
+    speciesfamtbl = pd.merge(pseudopan, pangenomes, on = ["gene", "species"], 
+        how = "left")
+    speciesfamtbl = speciesfamtbl[["speciesfam", "species", "orthogroup"]]
+    pangenome = pd.merge(pangenomes, speciesfamtbl, 
+        on = ["speciesfam", "species"])
+    pangenome = pangenome[["gene", "genome", "orthogroup"]]
+    write_tsv(pangenome, pangenomefout)
+
 def run_build(args): 
     
     fin_faapaths = args.faa_files

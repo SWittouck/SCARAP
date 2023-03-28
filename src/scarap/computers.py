@@ -8,6 +8,7 @@ from Bio import SeqIO, SeqRecord
 from random import shuffle
 from statistics import mean
 
+from readerswriters import *
 from utils import *
 
 def subset_idmat(matrix, rownames, rownames_sub):
@@ -362,24 +363,20 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
                     orthogroup + ".fasta")
                 with open(fout_orthogroup, "a+") as hout_orthogroup:
                     SeqIO.write(record, hout_orthogroup, "fasta")
-
-def collapse_pangenome(pangenome, faapathsfin, reprsfout, famprefix,
-    tempdio):
-    os.makedirs(tempdio)
-    faapaths = read_lines(faapathsfin)
-    gather_orthogroup_sequences(pangenome, faapaths, tempdio)
-    famfins = [os.path.join(tempdio, file) for file in os.listdir(tempdio)]
-    reprs = []
-    for famfin in famfins:
-        fam = filename_from_path(famfin)
-        with open(famfin, "r") as famhin:
-            records = list(SeqIO.parse(famhin, "fasta"))
-            repr = select_representative(records)
-            repr.id = famprefix + "-" + fam
-            reprs.append(repr)
-    with open(reprsfout, "w") as reprshout:
-        SeqIO.write(reprs, reprshout, "fasta")
-    shutil.rmtree(tempdio)
+    
+def create_pseudogenome(pangenome, faapaths, tmpdio):
+    "Returns a pseudogenome with one representative gene per orthogroup."
+    os.makedirs(tmpdio)
+    gather_orthogroup_sequences(pangenome, faapaths, tmpdio)
+    genes = [None] * pangenome["orthogroup"].nunique()
+    for ix, ogfin in enumerate(listpaths(tmpdio)):
+        seqs = read_fasta(ogfin)
+        repr = select_representative(seqs)
+        genes[ix] = repr.id
+    genetbl = pangenome[pangenome["gene"].isin(genes)]
+    genetbl = genetbl[["gene", "genome"]] 
+    shutil.rmtree(tmpdio)
+    return(genetbl)
 
 def construct_supermatrix(coregenome, alifins, supermatrixfout):
     """Constructs a contatenated alignment (= supermatrix).
