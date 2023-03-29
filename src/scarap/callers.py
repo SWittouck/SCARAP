@@ -54,6 +54,14 @@ def run_mafft(fin_seqs, fout_aln, threads = 1, options = []):
     with open(fout_aln, "w") as hout_aln:
         result = subprocess.run(args, stdout = hout_aln, 
             stderr = subprocess.PIPE)
+        if result.returncode == 0: return() 
+        if result.stderr.splitlines()[-1][0:17] == b"Illegal character":
+            og = filename_from_path(fin_seqs)
+            logging.warning(f"added --amino flag to mafft for {og}")
+            args = ["mafft"] + options + ["--amino", "--thread", str(threads), 
+                fin_seqs]
+            result = subprocess.run(args, stdout = hout_aln, 
+                stderr = subprocess.PIPE)
 
 def run_mafft_parallel(fins_aa_seqs, fouts_aa_seqs_aligned):
     with concurrent.futures.ProcessPoolExecutor() as executor:
