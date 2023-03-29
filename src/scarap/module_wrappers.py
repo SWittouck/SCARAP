@@ -68,7 +68,7 @@ def run_search_withchecks(args):
     check_db(args.db)
 
     logging.info("checking dependencies")
-    check_tool("hmmsearch", ["-h"])
+    check_mmseqs()
 
     run_search(args)
 
