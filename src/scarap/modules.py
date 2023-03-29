@@ -82,6 +82,7 @@ def run_pan_hier(args):
     for species, genomesubtbl in genometbl.groupby("species"):
         speciespanfio = os.path.join(speciespansdio, species + ".tsv")
         if os.path.exists(speciespanfio):
+            logging.info(f"existing pangenome found for {species}")
             continue
         logging.info(f"started inferring pangenome of {species}")
         dout = os.path.join(speciespansdio, species)
@@ -98,10 +99,12 @@ def run_pan_hier(args):
     n_species = genometbl["species"].nunique()
     pseudogenomes = [None] * n_species
     for ix, speciespanfio in enumerate(listpaths(speciespansdio)):
+        species = filename_from_path(speciespanfio)
+        logging.info(f"constructing pseudogenome for {species}")
         speciespan = read_genes(speciespanfio)
         tmpdio = os.path.join(args.outfolder, "temp")
         pseudogenomes[ix] = create_pseudogenome(speciespan, faapaths, tmpdio)
-        pseudogenomes[ix]["species"] = filename_from_path(speciespanfio)
+        pseudogenomes[ix]["species"] = species
     pseudogenomes = pd.concat(pseudogenomes)
     write_tsv(pseudogenomes, pseudogenomesfio)
     
