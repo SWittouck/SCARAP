@@ -4,7 +4,7 @@
 
 Remark: all scripts import utils
 
-* scarap.py:
+* __main__.py:
     * commandline interface
     * imports module_wrappers
 * module_wrappers.py:
