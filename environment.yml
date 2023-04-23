@@ -7,3 +7,4 @@ dependencies:
 - bioconda::mmseqs2
 - pip:
   - -r requirements.txt
+  - .

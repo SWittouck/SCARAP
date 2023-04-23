@@ -6,7 +6,7 @@ import sys
 
 from Bio import SeqIO
 from pathlib import Path
-from utils import *
+from scarap.utils import *
 
 def check_tool(tool, arguments = []):
     devnull = open(os.devnull, 'w')

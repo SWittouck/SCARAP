@@ -9,12 +9,12 @@ from concurrent.futures import ProcessPoolExecutor
 from statistics import median, mean
 from random import sample
 
-from callers import *
-from computers import *
-from helpers import * 
-from pan import *
-from readerswriters import *
-from utils import *
+from scarap.callers import *
+from scarap.computers import *
+from scarap.helpers import * 
+from scarap.pan import *
+from scarap.readerswriters import *
+from scarap.utils import *
 
 def run_pan(args):
     if "species" in args and not args.species is None:

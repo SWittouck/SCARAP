@@ -8,7 +8,7 @@ import sys
 from Bio.Align.Applications import MafftCommandline
 from pathlib import Path
 
-from utils import *
+from scarap.utils import *
 
 def run_iqtree(fin_aln, dout_tree, threads, options):
     makedirs_smart(dout_tree)

@@ -5,3 +5,6 @@ src/tests
 src/scarap/__pycache__
 src/scarap/testfams
 src/scarap/tests
+build/
+dist/
+*egg-info/

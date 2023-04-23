@@ -8,8 +8,8 @@ from Bio import SeqIO, SeqRecord
 from random import shuffle
 from statistics import mean
 
-from readerswriters import *
-from utils import *
+from scarap.readerswriters import *
+from scarap.utils import *
 
 def subset_idmat(matrix, rownames, rownames_sub):
     """Subsets an identity matrix. 
