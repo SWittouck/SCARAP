@@ -49,19 +49,17 @@ def run_orthofinder(faafins, dout, logfout, threads, engine = "blast"):
             "'orthofinder.log'")
         sys.exit(1)
 
-def run_mafft(fin_seqs, fout_aln, threads = 1, options = []):
+def run_mafft(fin_seqs, fout_aln, threads = 1, options = [], retry=False):
     args = ["mafft"] + options + ["--thread", str(threads), fin_seqs]
     with open(fout_aln, "w") as hout_aln:
         result = subprocess.run(args, stdout = hout_aln, 
             stderr = subprocess.PIPE)
         if result.returncode == 0: return() 
-        if result.stderr.splitlines()[-1][0:17] == b"Illegal character":
+        if not retry and result.stderr.splitlines()[-1][0:17] == b"Illegal character":
             og = filename_from_path(fin_seqs)
-            logging.warning(f"added --amino flag to mafft for {og}")
-            args = ["mafft"] + options + ["--amino", "--thread", str(threads), 
-                fin_seqs]
-            result = subprocess.run(args, stdout = hout_aln, 
-                stderr = subprocess.PIPE)
+            logging.warning(f"added --amino and --anysymbol flags to mafft for {og}")
+            options = options + ["--amino", "--anysymbol"]
+            run_mafft(fin_seqs, fout_aln, threads, options, retry=True)
 
 def run_mafft_parallel(fins_aa_seqs, fouts_aa_seqs_aligned):
     with concurrent.futures.ProcessPoolExecutor() as executor:
