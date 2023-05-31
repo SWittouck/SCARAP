@@ -8,3 +8,6 @@ src/scarap/tests
 build/
 dist/
 *egg-info/
+__pycache__
+bats/
+test_helper/

@@ -20,3 +20,9 @@ scarap = "scarap.__main__:main"
 [tools.setuptools.packages.find]
 where = ["src"]
 incude = ["scarap*"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath="src"
