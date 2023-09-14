@@ -2,6 +2,24 @@
 
 SCARAP is a toolkit with modules for various tasks related to comparative genomics of prokaryotes. SCARAP has been designed to be fast and scalable. Its main feature is pangenome inference, but it also has modules for direct core genome inference (without inferring the full pangenome), subsampling representatives from a (large) set of genomes and constructing a concatenated core gene alignment ("supermatrix") that can later be used for phylogeny inference.  SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
 
+## Installation 
+
+You can install SCARAP through [conda](https://docs.conda.io/projects/miniconda/en/latest/#quick-command-line-install): 
+
+```
+git clone https://github.com/swittouck/scarap.git
+cd scarap
+conda env create -f environment.yml 
+```
+
+You can then run SCARAP as follows: 
+
+```
+conda activate scarap
+scarap -h
+conda deactivate
+```
+
 ## Dependencies
 
 Essential dependencies: 
@@ -10,12 +28,11 @@ Essential dependencies:
 * Python libraries:
     * [biopython](https://biopython.org/) version >= 1.67
     * [ete3](http://etetoolkit.org/) version >= 3.1.1
+    * [numpy](https://numpy.org/) version >=1.16.5
     * [scipy](https://www.scipy.org/) version >= 1.4.1
+    * [pandas](https://pandas.pydata.org/) version >= 1.5.3
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
 * [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11, 12 or 13
-
-When using conda, a new environment named scarap can quickly be created with `conda env create -f environment.yml`. 
-It will download all needed dependencies.
 
 ## Usage
 
