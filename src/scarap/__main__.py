@@ -10,8 +10,8 @@ import argparse
 import logging
 import sys
 
-from utils import *
-from module_wrappers import *
+from scarap.utils import *
+from scarap.module_wrappers import *
 
 def print_help():
 
@@ -231,8 +231,7 @@ def parse_arguments():
 
     return(args)
 
-if __name__ == "__main__":
-
+def main():
     args = parse_arguments()
 
     if not "func" in args:
@@ -268,3 +267,6 @@ if __name__ == "__main__":
     args.func(args)
 
     logging.info("SCARAP out")
+
+if __name__ == "__main__":
+    main()

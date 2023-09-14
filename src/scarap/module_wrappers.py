@@ -2,9 +2,9 @@ import logging
 import os
 import sys
 
-from utils import *
-from checkers import *
-from modules import *
+from scarap.utils import *
+from scarap.checkers import *
+from scarap.modules import *
 
 # helper function
 def correct_freq(freq, name):

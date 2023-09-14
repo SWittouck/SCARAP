@@ -6,7 +6,7 @@ import sys
 
 from Bio import SeqIO
 from pathlib import Path
-from utils import *
+from scarap.utils import *
 
 def check_tool(tool, arguments = []):
     devnull = open(os.devnull, 'w')
@@ -41,9 +41,14 @@ def check_mmseqs():
     except AttributeError:
         version = "unknown"
     releases_tested = {"e1a1c": "11", "113e3": "12", "45111": "13"}
-    release = releases_tested.get(version, "unknown")
+    if version.split(".")[0] in releases_tested.values():
+    # new version shows human readable version
+        release = version.split(".")[0]
+    else:
+    # Old version showed the first 5 characters of the commit sha for the version
+        release = releases_tested.get(version, "unknown")
     logging.info(f"detected MMseqs2 version {version} (release {release})")
-    if not version in releases_tested.keys():
+    if not release in releases_tested.values():
         logging.warning("SCARAP has only been tested with MMseqs2 "
             "releases 11, 12 and 13")
 

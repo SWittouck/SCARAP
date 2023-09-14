@@ -1,0 +1,10 @@
+# run: conda env create --file environment.yml
+name: scarap
+dependencies:
+- python>=3.6.7
+- pip
+- bioconda::mafft
+- bioconda::mmseqs2
+- pip:
+  - -r requirements.txt
+  - .

@@ -2,10 +2,10 @@ import logging
 import os
 import shutil
 
-from utils import *
-from readerswriters import *
-from computers import *
-from callers import *
+from scarap.utils import *
+from scarap.readerswriters import *
+from scarap.computers import *
+from scarap.callers import *
 
 # used by the build and search modules
 def run_profilesearch(fins_faas, fins_alis, fout_hits, dout_tmp, threads):

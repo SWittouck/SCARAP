@@ -14,6 +14,9 @@ Essential dependencies:
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
 * [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11, 12 or 13
 
+When using conda, a new environment named scarap can quickly be created with `conda env create -f environment.yml`. 
+It will download all needed dependencies.
+
 ## Usage
 
 SCARAP is able to perform a number of specific tasks related to prokaryotic comparative genomics (see also `scarap -h`). 

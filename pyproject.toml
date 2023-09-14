@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scarap"
+version = "0.4.0"
+dependencies = [
+    "wheel",
+    "biopython>=1.67",
+    "ete3>=3.1.1",
+    "numpy>=1.16.5",
+    "scipy>=1.4.1",
+    "pandas"
+]
+
+[project.scripts]
+scarap = "scarap.__main__:main"
+
+[tools.setuptools.packages.find]
+where = ["src"]
+incude = ["scarap*"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath="src"

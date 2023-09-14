@@ -8,7 +8,7 @@ from Bio import SeqIO, AlignIO
 from concurrent.futures import ProcessPoolExecutor
 from io import StringIO
 
-from utils import *
+from scarap.utils import *
         
 def read_fastapaths(path):
     # when path is a file

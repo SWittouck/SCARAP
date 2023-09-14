@@ -11,10 +11,10 @@ from ete3 import Tree
 from concurrent.futures import ProcessPoolExecutor
 from scipy import cluster
 
-from utils import *
-from readerswriters import *
-from computers import *
-from callers import *
+from scarap.utils import *
+from scarap.readerswriters import *
+from scarap.computers import *
+from scarap.callers import *
 
 ## helpers - ficlin module (F)
                 
