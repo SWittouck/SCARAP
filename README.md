@@ -54,6 +54,14 @@ Modules for other useful tasks are also available:
 * `concat`: construct a concatenated core orthogroup alignment from a core genome
 * `fetch`: fetch sequences and store in fasta per orthogroup
 
+### Obtaining data 
+
+SCARAP works mainly with faa files: amino acid sequences of all (predicted) genes in a genome assembly. You can obtain faa files in at least three ways: 
+
+* You can run a gene prediction tool like [Prodigal](https://github.com/hyattpd/Prodigal) on genome assemblies of your favorite strains, or a complete annotation pipeline such as [Prokka](https://github.com/tseemann/prokka) or [Bakta](https://github.com/oschwengers/bakta). 
+* You can search your favorite taxon on [NCBI genome](https://www.ncbi.nlm.nih.gov/datasets/genome/) and manually download assemblies in the following way: click on an assembly, click "Download", select "Protein (FASTA)" as file type and click "Download" again. 
+* Given a list of assembly accession numbers (i.e. starting with GCA/GCF), you can use [this script](https://github.com/SWittouck/proclasp/blob/master/src/scripts/download_fnas.sh) to download the corresponding faa files. 
+
 ### Inferring a pangenome
 
 If you want to infer the pangenome of a set of genomes, you only need their faa files (fasta files with protein sequences) as input. If the faa files are stored in a folder `faas`, you can infer the pangenome using 16 threads by running: 
