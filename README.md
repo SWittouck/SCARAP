@@ -60,7 +60,15 @@ SCARAP works mainly with faa files: amino acid sequences of all (predicted) gene
 
 * You can run a gene prediction tool like [Prodigal](https://github.com/hyattpd/Prodigal) on genome assemblies of your favorite strains, or a complete annotation pipeline such as [Prokka](https://github.com/tseemann/prokka) or [Bakta](https://github.com/oschwengers/bakta). 
 * You can search your favorite taxon on [NCBI genome](https://www.ncbi.nlm.nih.gov/datasets/genome/) and manually download assemblies in the following way: click on an assembly, click "Download", select "Protein (FASTA)" as file type and click "Download" again. 
-* Given a list of assembly accession numbers (i.e. starting with GCA/GCF), you can use [this script](https://github.com/SWittouck/proclasp/blob/master/src/scripts/download_fnas.sh) to download the corresponding faa files. 
+* Given a list of assembly accession numbers (i.e. starting with GCA/GCF), you can use [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download/) to download the corresponding faa files.
+
+Given a list of accessions in a file called `accessions.txt`, you can use ncbi-genome-download to download faa files as follows: 
+
+      ncbi-genome-download -P \
+        --assembly-accessions accessions.txt \
+        --section genbank \
+        --formats protein-fasta \
+        bacteria
 
 ### Inferring a pangenome
 
