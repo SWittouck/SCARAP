@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import sys
 
-from Bio.Align.Applications import MafftCommandline
 from pathlib import Path
 
 from scarap.utils import *
