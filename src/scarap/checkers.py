@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 
 from Bio import SeqIO
 from pathlib import Path
@@ -111,7 +112,9 @@ def check_fastas(path):
         # error if fasta filenames not unique
         filenames = [filename_from_path(fp) for fp in fastapaths]
         if not len(filenames) == len(set(filenames)):
-            logging.error("names of fasta files are not unique")
+            # Check for the culprit
+            offenders = [x for x,c in Counter(filenames).items() if c > 1]
+            logging.error(f"names of fasta files are not unique. Offending values are: {offenders}")
             sys.exit(1)
     # when path is a folder
     elif os.path.isdir(path):
