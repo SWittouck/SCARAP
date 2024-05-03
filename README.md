@@ -135,4 +135,4 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 ## Citation
 
-A manuscript describing SCARAP and its validation has been prepared and will (hopefully) by published shortly. 
+A manuscript describing SCARAP and its validation has been prepared and will (hopefully) be published shortly. 
