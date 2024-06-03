@@ -124,6 +124,9 @@ def check_fastas(path):
         extensions = ("fasta", "fa", "faa", "ffn", "fasta.gz", "fa.gz", 
             "faa.gz", "ffn.gz")
         fastapaths = [fp for fp in fastapaths if fp.endswith(extensions)]
+        if len(fastapaths) == 0:
+            logging.error(f"No fasta files found in {path}")
+            sys.exit(1)
     # error when path doesn't exist
     else: 
         logging.error(f"input file/folder '{path}' not found")
