@@ -1,4 +1,4 @@
-# SCARAP: toolkit for comparative genomics of prokaryotes
+# SCARAP: pangenome inference and comparative genomics of prokaryotes
 
 SCARAP is a toolkit with modules for various tasks related to comparative genomics of prokaryotes. SCARAP has been designed to be fast and scalable. Its main feature is pangenome inference, but it also has modules for direct core genome inference (without inferring the full pangenome), subsampling representatives from a (large) set of genomes and constructing a concatenated core gene alignment ("supermatrix") that can later be used for phylogeny inference.  SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
 
@@ -20,9 +20,7 @@ scarap -h
 conda deactivate
 ```
 
-## Dependencies
-
-Essential dependencies: 
+You can also install SCARAP manually by cloning it and installing the following dependencies: 
 
 * [Python3](https://www.python.org/) version >= 3.6.7
 * Python libraries:
@@ -34,25 +32,7 @@ Essential dependencies:
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
 * [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11, 12 or 13
 
-## Usage
-
-SCARAP is able to perform a number of specific tasks related to prokaryotic comparative genomics (see also `scarap -h`). 
-
-The most useful modules of SCARAP are the following: 
-
-* `pan`: infer a pangenome from a set of faa files
-* `core`: infer a core genome from a set of faa files
-* `sample`: sample a subset of representative genomes
-
-Modules for other useful tasks are also available: 
-
-* `build`: build a profile database for a core/pangenome
-* `search`: search query genes in a profile database
-* `checkgenomes`: assess the genomes in a core genome
-* `checkgroups`: assess the orthogroups in a core genome
-* `filter`: filter the genomes/orthogroups in a pangenome
-* `concat`: construct a concatenated core orthogroup alignment from a core genome
-* `fetch`: fetch sequences and store in fasta per orthogroup
+## Quick start
 
 ### Obtaining data 
 
@@ -125,6 +105,26 @@ If you want to produce a nucleotide-level supermatrix, this can be achieved by g
       
 The nucleotide-level supermatrix will be saved in `supermatrix/supermatrix_nucs.fasta`. 
 
+## Modules 
+
+SCARAP is able to perform a number of specific tasks related to prokaryotic comparative genomics (see also `scarap -h`). 
+
+The most useful modules of SCARAP are probably the following: 
+
+* `pan`: infer a pangenome from a set of faa files
+* `core`: infer a core genome from a set of faa files
+* `sample`: sample a subset of representative genomes
+
+Modules for other useful tasks are also available: 
+
+* `build`: build a profile database for a core/pangenome
+* `search`: search query genes in a profile database
+* `checkgenomes`: assess the genomes in a core genome
+* `checkgroups`: assess the orthogroups in a core genome
+* `filter`: filter the genomes/orthogroups in a pangenome
+* `concat`: construct a concatenated core orthogroup alignment from a core genome
+* `fetch`: fetch sequences and store in fasta per orthogroup
+
 ## License
 
 SCARAP is free software, licensed under [GPLv3](https://github.com/SWittouck/scarap/blob/master/LICENSE).
@@ -135,6 +135,4 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 ## Citation
 
-When you use SCARAP for your publication, please cite:
-
-[Wittouck, S., Wuyts, S., Meehan, C. J., van Noort, V., & Lebeer, S. (2019). A Genome-Based Species Taxonomy of the Lactobacillus Genus Complex. mSystems, 4(5), e00264–19.](https://doi.org/10.1128/mSystems.00264-19)
+A manuscript describing SCARAP and its validation has been prepared and will (hopefully) be published shortly. 
