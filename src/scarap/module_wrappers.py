@@ -34,6 +34,10 @@ def run_pan_withchecks(args):
         check_mmseqs()
         check_mafft() 
 
+    if args.repseqs < 2:
+        logging.error("at least two representative sequences are needed for "
+            "family splitting")
+
     run_pan(args)
 
 def run_build_withchecks(args):

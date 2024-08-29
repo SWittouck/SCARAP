@@ -446,14 +446,19 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     
     See split_family_recursive_FH.
     """
+
+    # define maximum number of sequences in msa and hclust
+    max_align = min_reps * 2
     
+    # STEP 1: DETERMINE REPRESENTATIVES
+
     update_hclust = False
-    # if reps not necessary, for the first time: ...
-    if not ficlin or len(pan.index) <= max_reps:
+    # if msa on all sequences allowed: all become representatives
+    if not ficlin or len(pan.index) <= max_align:
         if hclust is None or hclust.get_count() != len(pan.index):
             pan["rep"] = pan.index
             update_hclust = True
-    # if parent reps are too few to re-use: ...
+    # if too few parental representatives: recruit extra
     else:
         n_reps = len(pan["rep"].unique())
         if n_reps < min_reps:
@@ -465,6 +470,8 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
                 return([None] * 8)
             pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
             update_hclust = True
+    
+    # STEP 2: UPDATE HIERARCHICAL CLUSTERING
             
     # update hclust if requested, otherwise use parent hclust
     if update_hclust:
@@ -482,26 +489,32 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         for leaf in hclust.pre_order(lambda x: x):
             leaf.id = reps[leaf.id]
     
-    # split pan, sequences and hclust
+    # STEP 3: SPLIT DATA IN SUBFAMILIES
+
+    # split hclust
     hclust1 = hclust.get_left()
     hclust2 = hclust.get_right()
+    
+    # split pan
     reps1 = hclust1.pre_order(lambda x: x.id)
     reps2 = hclust2.pre_order(lambda x: x.id)
     pan1 = pan[pan["rep"].isin(reps1)].copy()
     pan2 = pan[pan["rep"].isin(reps2)].copy()
+    family = pan.orthogroup.tolist()[0]
+    pan1.loc[:, "orthogroup"] = family + "_1"
+    pan2.loc[:, "orthogroup"] = family + "_2"
+
+    # split sequences
     sequences1 = [s for s in sequences if s.id in pan1.index]
     sequences2 = [s for s in sequences if s.id in pan2.index]
+
+    # split seedmatrix
     if ficlin:
         seedmatrix1 = seedmatrix[pan["rep"].isin(reps1).tolist(), :]
         seedmatrix2 = seedmatrix[pan["rep"].isin(reps2).tolist(), :]
     else: 
         seedmatrix1 = None
         seedmatrix2 = None
-        
-    # give the subfamilies names 
-    family = pan.orthogroup.tolist()[0]
-    pan1.loc[:, "orthogroup"] = family + "_1"
-    pan2.loc[:, "orthogroup"] = family + "_2"
     
     return([pan1, pan2, sequences1, sequences2, hclust1, hclust2, seedmatrix1, 
         seedmatrix2])
@@ -849,7 +862,7 @@ def split_family_recursive_P(pan, sequences, threads, dio_tmp):
     
 ## top-level functions
 
-def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
+def split_superfamily(pan, strategy, din_fastas, n_reps, threads, dio_tmp):
     """Splits a gene superfamily in a set of gene families.
     
     Args:
@@ -877,8 +890,8 @@ def split_superfamily(pan, strategy, din_fastas, threads, dio_tmp):
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         pan = split_family_recursive_T_nl(pan, sequences, threads, dio_tmp)
     elif strategy in ["H", "FH", "T", "FT"]:
-        max_reps = 50
-        min_reps = 40
+        max_reps = n_reps # e.g. 50
+        min_reps = n_reps # e.g. 40
         ficlin = "F" in strategy
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         genes = pan.index.tolist()
@@ -989,7 +1002,7 @@ def infer_superfamilies(faafins, dout, threads):
     # write pangenome file
     write_tsv(genes, f"{dout}/genes.tsv")
 
-def infer_pangenome(faafins, splitstrategy, dout, threads):
+def infer_pangenome(faafins, splitstrategy, n_reps, dout, threads):
     """Infers the pangenome of a set of genomes and writes it to disk. 
     
     Args:
@@ -1072,7 +1085,7 @@ def infer_pangenome(faafins, splitstrategy, dout, threads):
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
         pangenome_splitable = executor.map(split_superfamily, 
             pangenome_splitable, [splitstrategy] * n, [dio_fastas] * n, 
-            [tpp] * n, [f"{dout}/tmp"] * n)
+            [n_reps] * n, [tpp] * n, [f"{dout}/tmp"] * n)
     print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])

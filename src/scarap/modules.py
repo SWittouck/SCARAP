@@ -55,7 +55,10 @@ def run_pan_nonhier(args):
       
         logging.info(f"pangenome will be constructed with the {args.method} "
             "strategy")
-        infer_pangenome(faafins, args.method, args.outfolder, args.threads)
+        logging.info(f"{args.repseqs} representative sequences will be used "
+            "for family splitting")
+        infer_pangenome(faafins, args.method, args.repseqs, args.outfolder, 
+            args.threads)
 
 def run_pan_hier(args):
   
@@ -604,6 +607,7 @@ def run_core(args):
     fin_faapaths = args.faa_files
     dout = args.outfolder
     method = args.method
+    repseqs = args.repseqs
     seeds = args.seeds
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
@@ -633,7 +637,7 @@ def run_core(args):
 
     logging.info("STEP 1 - inferring pangenome of seed genomes")
     args_pan = Namespace(faa_files = fout_seedpaths, outfolder = dout_seedpan,
-        method = method, threads = threads)
+        method = method, repseqs = repseqs, threads = threads)
     run_pan(args_pan)
     
     logging.info("STEP 2 - building database of seed core genes and searching "
