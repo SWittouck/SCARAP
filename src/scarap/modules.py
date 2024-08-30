@@ -55,10 +55,12 @@ def run_pan_nonhier(args):
       
         logging.info(f"pangenome will be constructed with the {args.method} "
             "strategy")
-        logging.info(f"{args.repseqs} representative sequences will be used "
-            "for family splitting")
-        infer_pangenome(faafins, args.method, args.repseqs, args.outfolder, 
-            args.threads)
+        logging.info(f"for alignments of more than {args.max_align} sequences, "
+            f"{args.max_reps} representative sequences will be used")
+        logging.info(f"gene family splits will be based on clustering/"
+            f"phylogenetic trees of at least {args.min_reps} sequences")
+        infer_pangenome(faafins, args.method, args.min_reps, args.max_reps,
+            args.max_align, args.outfolder, args.threads)
 
 def run_pan_hier(args):
   
@@ -607,7 +609,9 @@ def run_core(args):
     fin_faapaths = args.faa_files
     dout = args.outfolder
     method = args.method
-    repseqs = args.repseqs
+    min_reps = args.min_reps
+    max_reps = args.max_reps
+    max_align = args.max_align
     seeds = args.seeds
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
@@ -637,7 +641,8 @@ def run_core(args):
 
     logging.info("STEP 1 - inferring pangenome of seed genomes")
     args_pan = Namespace(faa_files = fout_seedpaths, outfolder = dout_seedpan,
-        method = method, repseqs = repseqs, threads = threads)
+        method = method, min_reps = min_reps, max_reps = max_reps, 
+        max_align = max_align, threads = threads)
     run_pan(args_pan)
     
     logging.info("STEP 2 - building database of seed core genes and searching "

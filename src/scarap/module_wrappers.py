@@ -34,9 +34,19 @@ def run_pan_withchecks(args):
         check_mmseqs()
         check_mafft() 
 
-    if args.repseqs < 2:
+    if args.min_reps < 2:
         logging.error("at least two representative sequences are needed for "
             "family splitting")
+
+    if (args.max_reps == 0):
+        args.max_reps = args.min_reps
+        logging.info(f"maximum number of representatives set to "
+            f"{args.max_reps}")
+
+    if (args.max_align == 0):
+        args.max_align = args.max_reps
+        logging.info(f"maximum number of sequences to align set to "
+            f"{args.max_align}")    
 
     run_pan(args)
 
@@ -198,5 +208,19 @@ def run_core_withchecks(args):
     else:
         check_mmseqs()
     check_mafft()
+
+    if args.min_reps < 2:
+        logging.error("at least two representative sequences are needed for "
+            "family splitting")
+
+    if (args.max_reps == 0):
+        args.max_reps = args.min_reps
+        logging.info(f"maximum number of representatives set to "
+            f"{args.max_reps}")
+
+    if (args.max_align == 0):
+        args.max_align = args.max_reps
+        logging.info(f"maximum number of sequences to align set to "
+            f"{args.max_align}")  
     
     run_core(args)

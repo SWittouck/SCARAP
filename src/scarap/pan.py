@@ -441,14 +441,11 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     return([pan1, pan2])
     
 def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps, 
-    seedmatrix, threads, dio_tmp):
+    max_align, seedmatrix, threads, dio_tmp):
     """Splits a family in two subfamilies.
     
     See split_family_recursive_FH.
     """
-
-    # define maximum number of sequences in msa and hclust
-    max_align = min_reps * 2
     
     # STEP 1: DETERMINE REPRESENTATIVES
 
@@ -732,7 +729,7 @@ def split_family_recursive_T_nl(pan, sequences, threads, dio_tmp):
     return(pan)
 
 def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps, 
-    max_reps, seedmatrix, threads, dio_tmp):
+    max_reps, max_align, seedmatrix, threads, dio_tmp):
     """Splits up a gene family using the H or FH strategy. 
     
     See [https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.\
@@ -764,7 +761,7 @@ def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps,
     
     pan1, pan2, sequences1, sequences2, hclust1, hclust2, seedmatrix1, \
         seedmatrix2 = split_family_FH(pan, sequences, hclust, ficlin, min_reps,
-        max_reps, seedmatrix, threads, dio_tmp)
+        max_reps, max_align, seedmatrix, threads, dio_tmp)
     if pan1 is None:
         split = False # don't split if all sequences are identical
     else:
@@ -773,9 +770,9 @@ def split_family_recursive_FH(pan, sequences, hclust, ficlin, min_reps,
     if split:
 
         pan1 = split_family_recursive_FH(pan1, sequences1, hclust1, ficlin, 
-            min_reps, max_reps, seedmatrix1, threads, dio_tmp)
+            min_reps, max_reps, max_align, seedmatrix1, threads, dio_tmp)
         pan2 = split_family_recursive_FH(pan2, sequences2, hclust2, ficlin, 
-            min_reps, max_reps, seedmatrix2, threads, dio_tmp)
+            min_reps, max_reps, max_align, seedmatrix2, threads, dio_tmp)
         pan = pd.concat([pan1, pan2])
         
     return(pan)
@@ -862,7 +859,8 @@ def split_family_recursive_P(pan, sequences, threads, dio_tmp):
     
 ## top-level functions
 
-def split_superfamily(pan, strategy, din_fastas, n_reps, threads, dio_tmp):
+def split_superfamily(pan, strategy, din_fastas, min_reps, max_reps, max_align, 
+    threads, dio_tmp):
     """Splits a gene superfamily in a set of gene families.
     
     Args:
@@ -890,8 +888,6 @@ def split_superfamily(pan, strategy, din_fastas, n_reps, threads, dio_tmp):
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         pan = split_family_recursive_T_nl(pan, sequences, threads, dio_tmp)
     elif strategy in ["H", "FH", "T", "FT"]:
-        max_reps = n_reps # e.g. 50
-        min_reps = n_reps # e.g. 40
         ficlin = "F" in strategy
         sequences = read_fasta(f"{din_fastas}/{superfam}.fasta")
         genes = pan.index.tolist()
@@ -903,7 +899,7 @@ def split_superfamily(pan, strategy, din_fastas, n_reps, threads, dio_tmp):
             seedmatrix = None
         if "H" in strategy:
             pan = split_family_recursive_FH(pan, sequences, None, ficlin,
-                min_reps, max_reps, seedmatrix, threads, dio_tmp)
+                min_reps, max_reps, max_align, seedmatrix, threads, dio_tmp)
         else:
             pan = split_family_recursive_FT(pan, sequences, None, ficlin,
                 min_reps, max_reps, seedmatrix, threads, dio_tmp)
@@ -1002,7 +998,8 @@ def infer_superfamilies(faafins, dout, threads):
     # write pangenome file
     write_tsv(genes, f"{dout}/genes.tsv")
 
-def infer_pangenome(faafins, splitstrategy, n_reps, dout, threads):
+def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout, 
+    threads):
     """Infers the pangenome of a set of genomes and writes it to disk. 
     
     Args:
@@ -1085,7 +1082,8 @@ def infer_pangenome(faafins, splitstrategy, n_reps, dout, threads):
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
         pangenome_splitable = executor.map(split_superfamily, 
             pangenome_splitable, [splitstrategy] * n, [dio_fastas] * n, 
-            [n_reps] * n, [tpp] * n, [f"{dout}/tmp"] * n)
+            [min_reps] * n, [max_reps] * n, [max_align] * n, [tpp] * n, 
+            [f"{dout}/tmp"] * n)
     print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])

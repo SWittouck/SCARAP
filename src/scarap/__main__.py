@@ -84,15 +84,19 @@ def parse_arguments():
         "to the amino acid suprmatrix"
     h_genomes = "input file with genomes to extract from pangenome"
     h_identity = "maximum sequence identity between sampled genomes [default 1]"
+    h_max_align = "maximum number of sequences to use for multiple sequence "\
+        "alignment [default MAX_SEQS]"
     h_max_core_genes = "maximum number of core genes to retrieve (0 = no "\
         "maximum) [default 0]"
     h_max_genomes = "maximum number of genomes to sample (0 = no maximum) "\
         "[default 0]"
+    h_max_reps = "maximum number of representative sequences to use for "\
+        "multiple sequence alignment [default MIN_REPS]"
     h_method = "pangenome inference method [default: FH]"
     h_method_sample = "genome-genome comparison method [default: mean]"
+    h_min_reps = "minimum number of representative sequences to use for "\
+        "multiple sequence alignment [default 32]"
     h_orthogroups = "input file with orthogroups to extract from pangenome"
-    h_repseqs = "number of representative sequences for family splitting; "\
-        "fewer will be faster but potentially less accurate [default 32]"
     h_seeds = "number of seed genomes to use [default 100]"
     h_species = "input file with species of genomes; if given, a hierarchical "\
         "pangenome strategy will be used for final database selection"
@@ -108,8 +112,12 @@ def parse_arguments():
     parser_pan.add_argument("outfolder", help = h_outfolder)
     parser_pan.add_argument("-d", "--method", default = "FH", 
         choices = method_choices, help = h_method)
-    parser_pan.add_argument("-r", "--repseqs", default = 32, type = int,
-        help = h_repseqs)
+    parser_pan.add_argument("-i", "--min-reps", default = 32, type = int,
+        help = h_min_reps)
+    parser_pan.add_argument("-a", "--max-reps", default = 0, type = int,
+        help = h_max_reps)
+    parser_pan.add_argument("-x", "--max-align", default = 0, type = int,
+        help = h_max_align)
     parser_pan.add_argument("-s", "--species", help = h_species)
     parser_pan.add_argument("-t", "--threads", default = 8, type = int, 
         help = h_threads)
@@ -123,8 +131,12 @@ def parse_arguments():
     parser_core.add_argument("outfolder", help = h_outfolder)
     parser_core.add_argument("-d", "--method", default = "FH", 
         choices = method_choices, help = h_method)
-    parser_core.add_argument("-r", "--repseqs", default = 32, type = int,
-        help = h_repseqs)
+    parser_core.add_argument("-i", "--min-reps", default = 32, type = int,
+        help = h_min_reps)
+    parser_core.add_argument("-a", "--max-reps", default = 0, type = int,
+        help = h_max_reps)
+    parser_core.add_argument("-x", "--max-align", default = 0, type = int,
+        help = h_max_align)
     parser_core.add_argument("-e", "--seeds", default = 100, type = int,
         help = h_seeds)
     parser_core.add_argument("-p", "--core-prefilter", default = 0.90,
