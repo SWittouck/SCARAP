@@ -446,32 +446,37 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     
     See split_family_recursive_FH.
     """
-    
-    # STEP 1: DETERMINE REPRESENTATIVES
 
-    update_hclust = False
-    # if msa on all sequences allowed: all become representatives
-    if not ficlin or len(pan.index) <= max_align:
-        if hclust is None or hclust.get_count() != len(pan.index):
-            pan["rep"] = pan.index
-            update_hclust = True
-    # if too few parental representatives: recruit extra
+    # determine necessary steps
+    n_seqs = len(pan.index)
+    n_reps = 0 if hclust is None else hclust.get_count()
+    if ficlin and n_reps >= min_reps:
+        update_reps = False
+        cluster_reps = False
+    elif ficlin and n_seqs > max_align:
+        update_reps = True
+        cluster_reps = True
     else:
-        n_reps = len(pan["rep"].unique())
-        if n_reps < min_reps:
-            seedmatrix = update_seedmatrix(seedmatrix, sequences, 
-                f"{dio_tmp}/ficlin", threads)
-            linclusters = np.argmax(seedmatrix, 1)
-            # return emptiness if all sequences map to the same seed
-            if (len(set(linclusters))) == 1: 
-                return([None] * 8)
-            pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
-            update_hclust = True
+        pan["rep"] = pan.index # all seqs become reps 
+        update_reps = False
+        cluster_reps = True
+
+    # STEP 1: UPDATE REPRESENTATIVES
+
+    if update_reps:
+
+        seedmatrix = update_seedmatrix(seedmatrix, sequences, 
+            f"{dio_tmp}/ficlin", threads)
+        linclusters = np.argmax(seedmatrix, 1)
+        # return emptiness if all sequences map to the same seed
+        if (len(set(linclusters))) == 1: 
+            return([None] * 8)
+        pan["rep"] = select_reps(pan.index.tolist(), linclusters, sequences)
+     
+    # STEP 2: CLUSTER REPRESENTATIVES
     
-    # STEP 2: UPDATE HIERARCHICAL CLUSTERING
-            
-    # update hclust if requested, otherwise use parent hclust
-    if update_hclust:
+    if cluster_reps:
+
         repseqs = [s for s in sequences if s.id in pan["rep"].unique()]
         reps = [s.id for s in repseqs]
         # logging.info(f"aligning {len(reps)} sequences")
