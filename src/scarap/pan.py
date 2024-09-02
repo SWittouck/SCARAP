@@ -450,7 +450,7 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
     # determine necessary steps
     n_seqs = len(pan.index)
     n_reps = 0 if hclust is None else hclust.get_count()
-    if ficlin and n_reps >= min_reps:
+    if ficlin and (n_reps >= min_reps or n_reps == n_seqs):
         update_reps = False
         cluster_reps = False
     elif ficlin and n_seqs > max_align:
