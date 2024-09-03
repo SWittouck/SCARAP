@@ -85,13 +85,13 @@ def parse_arguments():
     h_genomes = "input file with genomes to extract from pangenome"
     h_identity = "maximum sequence identity between sampled genomes [default 1]"
     h_max_align = "maximum number of sequences to use for multiple sequence "\
-        "alignment [default MAX_SEQS]"
+        "alignment [default MAX_REPS * 16]"
     h_max_core_genes = "maximum number of core genes to retrieve (0 = no "\
         "maximum) [default 0]"
     h_max_genomes = "maximum number of genomes to sample (0 = no maximum) "\
         "[default 0]"
     h_max_reps = "maximum number of representative sequences to use for "\
-        "multiple sequence alignment [default MIN_REPS]"
+        "multiple sequence alignment [default MIN_REPS * 1.25]"
     h_method = "pangenome inference method [default: FH]"
     h_method_sample = "genome-genome comparison method [default: mean]"
     h_min_reps = "minimum number of representative sequences to use for "\

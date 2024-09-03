@@ -56,9 +56,8 @@ def run_pan_nonhier(args):
         logging.info(f"pangenome will be constructed with the {args.method} "
             "strategy")
         logging.info(f"for alignments of more than {args.max_align} sequences, "
-            f"{args.max_reps} representative sequences will be used")
-        logging.info(f"gene family splits will be based on clustering/"
-            f"phylogenetic trees of at least {args.min_reps} sequences")
+            f"{args.min_reps} to {args.max_reps} representative sequences will "
+            "be used")
         infer_pangenome(faafins, args.method, args.min_reps, args.max_reps,
             args.max_align, args.outfolder, args.threads)
 

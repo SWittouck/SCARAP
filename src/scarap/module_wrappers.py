@@ -6,7 +6,10 @@ from scarap.utils import *
 from scarap.checkers import *
 from scarap.modules import *
 
-# helper function
+####################
+# helper functions #
+####################
+
 def correct_freq(freq, name):
     if freq > 100:
         logging.error(f"{name} should be between 0 and 1")
@@ -15,6 +18,36 @@ def correct_freq(freq, name):
         freq = freq / 100
         logging.info(f"corrected {name} value to {str(freq)}")
     return(freq)
+
+def process_reps(args):
+
+    if args.min_reps < 2:
+        logging.error("at least two representative sequences are needed for "
+            "family splitting")
+
+    if (args.max_reps == 0):
+        args.max_reps = round(args.min_reps * 1.25)
+        logging.info(f"maximum number of representatives set to "
+            f"{args.max_reps}")
+
+    if (args.max_align == 0):
+        args.max_align = round(args.max_reps * 16)
+        logging.info(f"maximum number of sequences to align set to "
+            f"{args.max_align}")
+
+    if args.min_reps > args.max_reps:
+        logging.error("the minimum number of representatives must be smaller "
+        "than or equal to the maximum number")
+
+    if args.max_reps > args.max_align:
+        logging.error("the maximum number of representatives must be smaller "
+        "than or equal to the maximum number of sequences to align")
+
+    return(args)
+
+###################
+# module wrappers #
+###################
 
 def run_pan_withchecks(args):
 
@@ -32,21 +65,9 @@ def run_pan_withchecks(args):
         check_mmseqs()
     else:
         check_mmseqs()
-        check_mafft() 
+        check_mafft()
 
-    if args.min_reps < 2:
-        logging.error("at least two representative sequences are needed for "
-            "family splitting")
-
-    if (args.max_reps == 0):
-        args.max_reps = args.min_reps
-        logging.info(f"maximum number of representatives set to "
-            f"{args.max_reps}")
-
-    if (args.max_align == 0):
-        args.max_align = args.max_reps
-        logging.info(f"maximum number of sequences to align set to "
-            f"{args.max_align}")    
+    args = process_reps(args)
 
     run_pan(args)
 
@@ -209,18 +230,6 @@ def run_core_withchecks(args):
         check_mmseqs()
     check_mafft()
 
-    if args.min_reps < 2:
-        logging.error("at least two representative sequences are needed for "
-            "family splitting")
-
-    if (args.max_reps == 0):
-        args.max_reps = args.min_reps
-        logging.info(f"maximum number of representatives set to "
-            f"{args.max_reps}")
-
-    if (args.max_align == 0):
-        args.max_align = args.max_reps
-        logging.info(f"maximum number of sequences to align set to "
-            f"{args.max_align}")  
+    args = process_reps(args)
     
     run_core(args)
