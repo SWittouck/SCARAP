@@ -398,7 +398,11 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
     genomes = list(set(coregenome.genome))
     n_genomes = len(genomes)
     for genome in genomes:
-        supermatrix[genome] = SeqRecord.SeqRecord(id = genome, seq = SeqRecord.Seq(""),
+        try:
+            empty_seq = SeqRecord.Seq("")
+        except AttributeError:
+            empty_seq = "" # for biopython v1.79
+        supermatrix[genome] = SeqRecord.SeqRecord(id = genome, seq = empty_seq,
             description = "")
 
     alifindict = {filename_from_path(alifin): alifin for alifin in alifins}
