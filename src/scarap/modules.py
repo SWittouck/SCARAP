@@ -95,7 +95,8 @@ def run_pan_hier(args):
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths_sub, faapathsfio)
         run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
-            threads = args.threads, method = args.method))
+            threads = args.threads, method = args.method, max_align = args.max_align, 
+            max_reps = args.max_reps, min_reps = args.min_reps))
         shutil.move(os.path.join(dout, "pangenome.tsv"), speciespanfio)
         shutil.rmtree(dout)
     
