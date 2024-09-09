@@ -81,6 +81,14 @@ def run_pan_hier(args):
     os.makedirs(speciespansdio, exist_ok = True)
     os.makedirs(pseudogenomesdio, exist_ok = True)
     os.makedirs(pseudopandio, exist_ok = True)
+
+    nonhier_args = dict(
+        threads=args.threads,
+        method=args.method,
+        max_align=args.max_align,
+        max_reps=args.max_reps,
+        min_reps=args.min_reps
+    )
     
     logging.info("PHASE 1: inferring species-level pangenomes")
     for species, genomesubtbl in genometbl.groupby("species"):
@@ -95,7 +103,7 @@ def run_pan_hier(args):
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths_sub, faapathsfio)
         run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
-            threads = args.threads, method = args.method))
+            **nonhier_args))
         shutil.move(os.path.join(dout, "pangenome.tsv"), speciespanfio)
         shutil.rmtree(dout)
     
@@ -116,7 +124,7 @@ def run_pan_hier(args):
     pseudogenomes = pseudogenomes.rename(columns = {"species": "orthogroup"})
     gather_orthogroup_sequences(pseudogenomes, faapaths, pseudogenomesdio)
     run_pan_nonhier(Namespace(faa_files = pseudogenomesdio, 
-        outfolder = pseudopandio, threads = args.threads, method = args.method))
+        outfolder = pseudopandio, **nonhier_args))
     shutil.move(os.path.join(pseudopandio, "pangenome.tsv"), pseudopanfio)
     shutil.rmtree(pseudogenomesdio)
     shutil.rmtree(pseudopandio)
