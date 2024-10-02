@@ -5,7 +5,6 @@ import pandas as pd
 import shutil
 
 from argparse import Namespace
-from concurrent.futures import ProcessPoolExecutor
 from statistics import median, mean
 from random import sample
 
@@ -15,6 +14,7 @@ from scarap.helpers import *
 from scarap.pan import *
 from scarap.readerswriters import *
 from scarap.utils import *
+from scarap.constants import *
 
 def run_pan(args):
     if "species" in args and not args.species is None:
@@ -24,7 +24,7 @@ def run_pan(args):
 
 def run_pan_nonhier(args):
 
-    pangenomefout = os.path.join(args.outfolder, "pangenome.tsv")
+    pangenomefout = os.path.join(args.outfolder, PANF)
     if os.path.isfile(pangenomefout):
         logging.info("existing pangenome detected - moving on")
         return()
@@ -76,8 +76,8 @@ def run_pan_hier(args):
     pseudogenomesdio = os.path.join(args.outfolder, "pseudogenomes")
     pseudogenomesfio = os.path.join(args.outfolder, "pseudogenomes.tsv")
     pseudopandio = os.path.join(args.outfolder, "pseudopangenome")
-    pseudopanfio = os.path.join(args.outfolder, "pseudopangenome.tsv")
-    pangenomefout = os.path.join(args.outfolder, "pangenome.tsv")
+    pseudopanfio = os.path.join(args.outfolder, PPANF)
+    pangenomefout = os.path.join(args.outfolder, PANF)
     os.makedirs(speciespansdio, exist_ok = True)
     os.makedirs(pseudogenomesdio, exist_ok = True)
     os.makedirs(pseudopandio, exist_ok = True)
@@ -104,7 +104,7 @@ def run_pan_hier(args):
         write_lines(faapaths_sub, faapathsfio)
         run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
             **nonhier_args))
-        shutil.move(os.path.join(dout, "pangenome.tsv"), speciespanfio)
+        shutil.move(os.path.join(dout, PANF), speciespanfio)
         shutil.rmtree(dout)
     
     logging.info("PHASE 2: constructing pseudogenome per species")
@@ -114,7 +114,7 @@ def run_pan_hier(args):
         species = filename_from_path(speciespanfio)
         logging.info(f"constructing pseudogenome for {species}")
         speciespan = read_genes(speciespanfio)
-        tmpdio = os.path.join(args.outfolder, "temp")
+        tmpdio = os.path.join(args.outfolder, TMP)
         pseudogenomes[ix] = create_pseudogenome(speciespan, faapaths, tmpdio)
         pseudogenomes[ix]["species"] = species
     pseudogenomes = pd.concat(pseudogenomes)
@@ -125,7 +125,7 @@ def run_pan_hier(args):
     gather_orthogroup_sequences(pseudogenomes, faapaths, pseudogenomesdio)
     run_pan_nonhier(Namespace(faa_files = pseudogenomesdio, 
         outfolder = pseudopandio, **nonhier_args))
-    shutil.move(os.path.join(pseudopandio, "pangenome.tsv"), pseudopanfio)
+    shutil.move(os.path.join(pseudopandio, PANF), pseudopanfio)
     shutil.rmtree(pseudogenomesdio)
     shutil.rmtree(pseudopandio)
     
@@ -162,7 +162,7 @@ def run_build(args):
     dout_tmp = os.path.join(dout, "tmp")
     fout_cutoffs = os.path.join(dout, "cutoffs.csv")
     fout_hits = os.path.join(dout, "hits.tsv")
-    fout_genes = os.path.join(dout, "genes.tsv")
+    fout_genes = os.path.join(dout, GENEF)
 
     if os.path.isfile(fout_cutoffs):
         logging.info("existing database detected - moving on")
@@ -192,7 +192,7 @@ def run_build(args):
     logging.info("aligning orthogroups")
     orthogroups = [os.path.splitext(f)[0] for f in os.listdir(dout_ogseqs)]
     fouts_ogseqs = make_paths(orthogroups, dout_ogseqs, ".fasta")
-    fouts_alis = make_paths(orthogroups, dout_alis, ".aln.gz")
+    fouts_alis = make_paths(orthogroups, dout_alis, ALN_OUTFMT)
     run_mafft_parallel(fouts_ogseqs, fouts_alis)
     
     # run profile search (function does its own logging)
@@ -244,7 +244,7 @@ def run_search(args):
     din_alis = os.path.join(din_db, "alignments")
     fin_cutoffs = os.path.join(din_db, "cutoffs.csv")
     fout_hits = os.path.join(dout, "hits.tsv")
-    fout_genes = os.path.join(dout, "genes.tsv")
+    fout_genes = os.path.join(dout, GENEF)
 
     if os.path.isfile(fout_genes):
         logging.info("existing search results detected - moving on")
@@ -306,7 +306,7 @@ def run_filter(args):
         logging.info("filtering orthogroups")
         orthogroups = read_lines(args.orthogroups)
         pangenome = filter_groups(pangenome, orthogroups)
-    write_tsv(pangenome, os.path.join(args.outfolder, "pangenome.tsv"))
+    write_tsv(pangenome, os.path.join(args.outfolder, PANF))
 
 def run_concat(args):
   
@@ -630,9 +630,9 @@ def run_core(args):
     dout_seedcore = os.path.join(dout, "seedcore")
     fout_seedpaths = os.path.join(dout, "seedpaths.txt")
     fout_nonseedpaths = os.path.join(dout, "nonseedpaths.txt")
-    fout_seedpan = os.path.join(dout_seedpan, "pangenome.tsv")
-    fout_genes_core = os.path.join(dout_seedcore, "genes.tsv")
-    fout_genes = os.path.join(dout, "genes.tsv")
+    fout_seedpan = os.path.join(dout_seedpan, PANF)
+    fout_genes_core = os.path.join(dout_seedcore, GENEF)
+    fout_genes = os.path.join(dout, GENEF)
     
     # make output subfolders 
     for dir in [dout_seedpan, dout_seedcore]:

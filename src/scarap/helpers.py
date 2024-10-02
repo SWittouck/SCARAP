@@ -6,6 +6,7 @@ from scarap.utils import *
 from scarap.readerswriters import *
 from scarap.computers import *
 from scarap.callers import *
+from scarap.constants import *
 
 # used by the build and search modules
 def run_profilesearch(fins_faas, fins_alis, fout_hits, dout_tmp, threads):
@@ -14,7 +15,7 @@ def run_profilesearch(fins_faas, fins_alis, fout_hits, dout_tmp, threads):
     dout_mmseqs = os.path.join(dout_tmp, "mmseqs2")
     dout_logs = os.path.join(dout_tmp, "mmseqs2_logs")
     dout_rubbish = os.path.join(dout_tmp, "rubbish")
-    fout_sto = os.path.join(dout_tmp, "alis.sto")
+    fout_sto = os.path.join(dout_tmp, STOCKHOLM_ALN)
 
     # create tmp subfolders
     for dir in [dout_mmseqs, dout_logs, dout_rubbish]:
