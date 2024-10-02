@@ -15,6 +15,7 @@ from scarap.utils import *
 from scarap.readerswriters import *
 from scarap.computers import *
 from scarap.callers import *
+from scarap.constants import *
 
 ## helpers - ficlin module (F)
                 
@@ -41,7 +42,7 @@ def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
   
     # construct target and prefilter dbs
     makedirs_smart(f"{dout_tmp}")
-    for dir in ["sequenceDB", "prefDB", "logs", "tmp"]:
+    for dir in ["sequenceDB", "prefDB", "logs", TMP]:
         makedirs_smart(f"{dout_tmp}/{dir}")
     write_fasta(sequences, f"{dout_tmp}/seqs.fasta")
     run_mmseqs(["createdb", f"{dout_tmp}/seqs.fasta", 
@@ -481,9 +482,9 @@ def split_family_FH(pan, sequences, hclust, ficlin, min_reps, max_reps,
         reps = [s.id for s in repseqs]
         # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
-        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
+        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/{REPSEQ_ALN}", 
             threads, ["--amino", "--anysymbol"])
-        aln = read_fasta(f"{dio_tmp}/repseqs.aln")
+        aln = read_fasta(f"{dio_tmp}/{REPSEQ_ALN}")
         idmat = identity_matrix(aln)
         distmat = distmat_from_idmat(idmat)
         hclust = cluster.hierarchy.linkage(distmat, method = "average")
@@ -553,9 +554,9 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
         reps = [s.id for s in repseqs]
         # logging.info(f"aligning {len(reps)} sequences")
         write_fasta(repseqs, f"{dio_tmp}/repseqs.fasta")
-        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/repseqs.aln", 
+        run_mafft(f"{dio_tmp}/repseqs.fasta", f"{dio_tmp}/{REPSEQ_ALN}", 
             threads, ["--amino"])
-        run_iqtree(f"{dio_tmp}/repseqs.aln", f"{dio_tmp}/tree", threads, 
+        run_iqtree(f"{dio_tmp}/{REPSEQ_ALN}", f"{dio_tmp}/tree", threads, 
             ["-m", "LG"])
         tree = Tree(f"{dio_tmp}/tree/tree.treefile")
     
@@ -595,7 +596,7 @@ def split_family_P(pan, sequences, threads, dio_tmp):
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
 
     # create sequence database
-    for dir in ["sequenceDB", "tmp", "resultDB", "logs"]:
+    for dir in ["sequenceDB", TMP, "resultDB", "logs"]:
         makedirs_smart(f"{dio_tmp}/{dir}")
     run_mmseqs(["createdb", f"{dio_tmp}/seqs.fasta", 
         f"{dio_tmp}/sequenceDB/db"], f"{dio_tmp}/logs/createdb.log")
@@ -613,7 +614,7 @@ def split_family_P(pan, sequences, threads, dio_tmp):
     # update profiles
     for i in range(5):
         if report: print(f"iteration {i}")
-        for dir in ["msaDB", "profileDB", "searchDB", "tmp"]:
+        for dir in ["msaDB", "profileDB", "searchDB", TMP]:
             makedirs_smart(f"{dio_tmp}/{dir}")
         open(f"{dio_tmp}/profiles.sto", "w").close()
         for profile, profilegenes in genes.groupby("profile"):
@@ -965,16 +966,16 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/logs/profile2consensus.log")
     run_mmseqs(["search", f"{dout}/profileDB/db",
         f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
-        f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"],
-        f"{dout}/logs/search.log",
+        f"{dout}/{TMP}", "-c", "0.5", "--cov-mode", "1"],
+        f"{dout}/{LOG}/search.log",
         skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
     run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
         f"{dout}/clusterDB/db", "--cluster-mode", "2"],
-        f"{dout}/logs/clust.log",
+        f"{dout}/{LOG}/clust.log",
         skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
 
     # create the pangenome file 
-    logging.info("compiling pangenome file with superfamilies")
+    logging.info(f"compiling pangenome file with {SFAMD}")
     # why --full-header option? --> to avoid MMseqs2 extracting the
     # UniqueIdentifier part of sequences in UniProtKB format 
     # (see https://www.uniprot.org/help/fasta-headers)
@@ -983,7 +984,7 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/logs/createtsv_preclusters.log")
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
         f"{dout}/clusterDB/db", f"{dout}/clusters.tsv", "--full-header"],
-        f"{dout}/logs/createtsv_clusters.log")
+        f"{dout}/{LOG}/createtsv_clusters.log")
     preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
         names = ["precluster", "gene"])
     preclustertable = preclustertable.applymap(lambda x: x.split(" ")[0])
@@ -1001,7 +1002,7 @@ def infer_superfamilies(faafins, dout, threads):
     genes["orthogroup"] = [namedict[f] for f in genes["orthogroup"]]
     
     # write pangenome file
-    write_tsv(genes, f"{dout}/genes.tsv")
+    write_tsv(genes, f"{dout}/{GENEF}")
 
 def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout, 
     threads):
@@ -1037,61 +1038,61 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
             padded_counts(len(pangenome.index))]
     
         logging.info("writing pangenome file")
-        write_tsv(pangenome, f"{dout}/pangenome.tsv")
+        write_tsv(pangenome, f"{dout}/{PANF}")
         
         return()
   
-    logging.info("STAGE 1: creation of superfamilies")
-    os.makedirs(f"{dout}/superfamilies", exist_ok = True)
-    infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
-    genes_superfams = pd.read_csv(f"{dout}/superfamilies/genes.tsv", 
+    logging.info(f"STAGE 1: creation of {SFAMD}")
+    os.makedirs(f"{dout}/{SFAMD}", exist_ok = True)
+    infer_superfamilies(faafins, f"{dout}/{SFAMD}", threads)
+    genes_superfams = pd.read_csv(f"{dout}/{SFAMD}/{GENEF}", 
         sep = "\t", names = ["gene", "orthogroup"])
     pangenome = pd.merge(genes, genes_superfams, on = "gene")
     
     if splitstrategy == "S":
       
         logging.info("writing pangenome file")
-        write_tsv(pangenome, f"{dout}/pangenome.tsv")
+        write_tsv(pangenome, f"{dout}/{PANF}")
         logging.info("removing temporary folders")
-        shutil.rmtree(f"{dout}/superfamilies")
+        shutil.rmtree(f"{dout}/{SFAMD}")
         return()
       
-    logging.info("STAGE 2: splitting of superfamilies")
+    logging.info(f"STAGE 2: splitting of {SFAMD}")
 
-    logging.info("gathering sequences of superfamilies")
-    os.makedirs(f"{dout}/superfamilies/superfamilies", exist_ok = True)
-    dio_fastas = f"{dout}/superfamilies/fastas"
+    logging.info(f"gathering sequences of {SFAMD}")
+    os.makedirs(f"{dout}/{SFAMD}/{SFAMD}", exist_ok = True)
+    dio_fastas = f"{dout}/{SFAMD}/fastas"
     gather_orthogroup_sequences(pangenome, faafins, dio_fastas)
 
-    logging.info("counting splitable superfamilies")
-    os.makedirs(f"{dout}/tmp", exist_ok = True)
+    logging.info(f"counting splittable {SFAMD}")
+    os.makedirs(f"{dout}/{TMP}", exist_ok = True)
     pangenome = pangenome.groupby("orthogroup")
     orthogroups = pangenome.aggregate({"genome": split_possible})
-    splitable = orthogroups[orthogroups.genome].index.tolist()
-    pangenome_splitable = [pan for name, pan in pangenome if name in splitable]
-    pangenome_splitable.sort(key = lambda pan: len(pan.index), reverse = True)
-    n = len(pangenome_splitable)
-    logging.info(f"found {n} splitable superfamilies")
+    splittable = orthogroups[orthogroups.genome].index.tolist()
+    pangenome_splittable = [pan for name, pan in pangenome if name in splittable]
+    pangenome_splittable.sort(key = lambda pan: len(pan.index), reverse = True)
+    n = len(pangenome_splittable)
+    logging.info(f"found {n} splittable {SFAMD}")
     
     if n == 0:
   
         logging.info("writing pangenome file")
         pangenome = pangenome.obj # to "ungroup"
-        write_tsv(pangenome, f"{dout}/pangenome.tsv")
+        write_tsv(pangenome, f"{dout}/{PANF}")
         logging.info("removing temporary folders")
-        shutil.rmtree(f"{dout}/superfamilies")
-        shutil.rmtree(f"{dout}/tmp")
+        shutil.rmtree(f"{dout}/{SFAMD}")
+        shutil.rmtree(f"{dout}/{TMP}")
         return()
     
-    logging.info("splitting superfamilies")
+    logging.info(f"splitting {SFAMD}")
     with ProcessPoolExecutor(max_workers = threads // tpp) as executor:
-        pangenome_splitable = executor.map(split_superfamily, 
-            pangenome_splitable, [splitstrategy] * n, [dio_fastas] * n, 
+        pangenome_splittable = executor.map(split_superfamily, 
+            pangenome_splittable, [splitstrategy] * n, [dio_fastas] * n, 
             [min_reps] * n, [max_reps] * n, [max_align] * n, [tpp] * n, 
-            [f"{dout}/tmp"] * n)
+            [f"{dout}/{TMP}"] * n)
     print("")
-    pangenome = pd.concat(list(pangenome_splitable) +
-        [pan for name, pan in pangenome if not name in splitable])
+    pangenome = pd.concat(list(pangenome_splittable) +
+        [pan for name, pan in pangenome if not name in splittable])
         
     logging.info("assigning names to the gene families")
     nametable = pd.DataFrame({"old": pangenome["orthogroup"].unique()})
@@ -1102,8 +1103,8 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
     pangenome["orthogroup"] = [namedict[f] for f in pangenome["orthogroup"]]
     
     logging.info("writing pangenome file")
-    write_tsv(pangenome, f"{dout}/pangenome.tsv")
+    write_tsv(pangenome, f"{dout}/{PANF}")
     
     logging.info("removing temporary folders")
-    shutil.rmtree(f"{dout}/superfamilies")
-    shutil.rmtree(f"{dout}/tmp")
+    shutil.rmtree(f"{dout}/{SFAMD}")
+    shutil.rmtree(f"{dout}/{TMP}")
