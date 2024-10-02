@@ -192,7 +192,7 @@ def run_build(args):
     logging.info("aligning orthogroups")
     orthogroups = [os.path.splitext(f)[0] for f in os.listdir(dout_ogseqs)]
     fouts_ogseqs = make_paths(orthogroups, dout_ogseqs, ".fasta")
-    fouts_alis = make_paths(orthogroups, dout_alis, ".aln")
+    fouts_alis = make_paths(orthogroups, dout_alis, ".aln.gz")
     run_mafft_parallel(fouts_ogseqs, fouts_alis)
     
     # run profile search (function does its own logging)
