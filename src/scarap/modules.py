@@ -115,14 +115,17 @@ def run_pan_hier(args):
         logging.info(f"constructing pseudogenome for {species}")
         speciespan = read_genes(speciespanfio)
         tmpdio = os.path.join(args.outfolder, TMP)
-        pseudogenomes[ix] = create_pseudogenome(speciespan, faapaths, tmpdio)
+        pseudogenomes[ix] = create_pseudogenome(speciespan, faapaths, tmpdio, save=True)
+        # concat pseudogenome sequences to species-specific fastas
+        sequences = glob.glob(os.path.join(tmpdio, "*.fasta"))
+        concatenate_fastas(sequences, f"{pseudogenomesdio}/{species}.fasta")
+        shutil.rmtree(tmpdio)
         pseudogenomes[ix]["species"] = species
     pseudogenomes = pd.concat(pseudogenomes)
     write_tsv(pseudogenomes, pseudogenomesfio)
     
     logging.info("PHASE 3: inferring pseudopangenome")
     pseudogenomes = pseudogenomes.rename(columns = {"species": "orthogroup"})
-    gather_orthogroup_sequences(pseudogenomes, faapaths, pseudogenomesdio)
     run_pan_nonhier(Namespace(faa_files = pseudogenomesdio, 
         outfolder = pseudopandio, **nonhier_args))
     shutil.move(os.path.join(pseudopandio, PANF), pseudopanfio)

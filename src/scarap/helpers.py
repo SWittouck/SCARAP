@@ -45,3 +45,10 @@ def run_profilesearch(fins_faas, fins_alis, fout_hits, dout_tmp, threads):
         
     # remove tmp
     shutil.rmtree(dout_tmp)
+
+def concatenate_fastas(fastas:list, fout:str):
+    with open(fout, "w") as hout:
+        for fasta in fastas:
+            with open(fasta) as hin:
+                for line in hin:
+                    hout.write(line)

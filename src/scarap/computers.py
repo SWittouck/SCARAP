@@ -364,7 +364,7 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
                 with open(fout_orthogroup, "a+") as hout_orthogroup:
                     SeqIO.write(record, hout_orthogroup, "fasta")
     
-def create_pseudogenome(pangenome, faapaths, tmpdio):
+def create_pseudogenome(pangenome, faapaths, tmpdio, save=False):
     "Returns a pseudogenome with one representative gene per orthogroup."
     os.makedirs(tmpdio)
     gather_orthogroup_sequences(pangenome, faapaths, tmpdio)
@@ -375,7 +375,8 @@ def create_pseudogenome(pangenome, faapaths, tmpdio):
         genes[ix] = repr.id
     genetbl = pangenome[pangenome["gene"].isin(genes)]
     genetbl = genetbl[["gene", "genome"]] 
-    shutil.rmtree(tmpdio)
+    if not save:
+        shutil.rmtree(tmpdio)
     return(genetbl)
 
 def construct_supermatrix(coregenome, alifins, supermatrixfout):
