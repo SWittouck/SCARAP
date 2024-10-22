@@ -7,7 +7,7 @@ import sys
 
 from Bio import AlignIO, Align
 from copy import copy
-from ete3 import Tree
+from ete4 import Tree
 from concurrent.futures import ProcessPoolExecutor
 from scipy import cluster
 
@@ -986,10 +986,10 @@ def infer_superfamilies(faafins, dout, threads):
         f"{dout}/logs/createtsv_clusters.log")
     preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
         names = ["precluster", "gene"])
-    preclustertable = preclustertable.applymap(lambda x: x.split(" ")[0])
+    preclustertable = preclustertable.map(lambda x: x.split(" ")[0])
     clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t",
         names = ["cluster", "precluster"])
-    clustertable = clustertable.applymap(lambda x: x.split(" ")[0])
+    clustertable = clustertable.map(lambda x: x.split(" ")[0])
     genes = pd.merge(preclustertable, clustertable, on = "precluster")
     genes = genes.rename(columns = {"cluster": "orthogroup"})
     genes = genes.drop(["precluster"], axis = 1)

@@ -203,7 +203,7 @@ def run_build(args):
     hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
         usecols = [0, 1, 2])
     hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+        map(lambda x: x.split(" ")[0])
     cutoffs = train_cutoffs(hits, pangenome)
     
     if core_filter != 0 or max_cores != 0:
@@ -263,7 +263,7 @@ def run_search(args):
     hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
         usecols = [0, 1, 2])
     hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+        map(lambda x: x.split(" ")[0])
     colnames = ["profile", "cutoff"]
     cutoffs = pd.read_csv(fin_cutoffs, sep = "\t", names = colnames)
     
