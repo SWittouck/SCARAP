@@ -5,6 +5,7 @@ dependencies:
 - pip
 - bioconda::mafft
 - bioconda::mmseqs2
+- bioconda::iqtree
 - pip:
   - -r requirements.txt
   - .
