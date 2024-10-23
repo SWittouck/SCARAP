@@ -169,9 +169,11 @@ def split_pan(pan, tree):
     
     # midpoint root the tree
     midoutgr = tree.get_midpoint_outgroup()
+    if tree.root.dist:
+        tree.root.dist = None
+    
     if midoutgr != tree:
         tree.set_outgroup(midoutgr) 
-        
     # split tree at root
     tree1 = tree.children[0].copy()
     tree2 = tree.children[1].copy()
