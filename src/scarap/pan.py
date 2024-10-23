@@ -428,7 +428,8 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
     run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
         ["-m", "LG+F+G4"])
-    tree = Tree(f"{dio_tmp}/tree/tree.treefile")
+    with open(f"{dio_tmp}/tree/tree.treefile", "r") as ftree:
+        tree = Tree(ftree)
     midoutgr = tree.get_midpoint_outgroup()
     genes_subfam1 = midoutgr.get_leaf_names()
     midoutgr.detach()
@@ -557,8 +558,8 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
             threads, ["--amino"])
         run_iqtree(f"{dio_tmp}/repseqs.aln", f"{dio_tmp}/tree", threads, 
             ["-m", "LG"])
-        tree = Tree(f"{dio_tmp}/tree/tree.treefile")
-    
+        with open(f"{dio_tmp}/tree/tree.treefile", "r") as ftree:
+            tree = Tree(ftree)
     # split pan based on midpoint root
     pan1, pan2, tree1, tree2 = split_pan(pan, tree)
     sequences1 = [s for s in sequences if s.id in pan1.index]
