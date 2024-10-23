@@ -177,8 +177,8 @@ def split_pan(pan, tree):
     tree2 = tree.children[1].copy()
     
     # split pan
-    reps_subfam1 = tree1.get_leaf_names()
-    reps_subfam2 = tree2.get_leaf_names()
+    reps_subfam1 = tree1.leaf_names()
+    reps_subfam2 = tree2.leaf_names()
     pan1 = pan[pan["rep"].isin(reps_subfam1)].copy()
     pan2 = pan[pan["rep"].isin(reps_subfam2)].copy()
     
@@ -212,7 +212,7 @@ def lowest_cn_roots(tree, pan):
     min_av_cn = 100000000
     
     # loop over all nodes except the root
-    for node in tree.iter_descendants():
+    for node in tree.descendants():
         # initialize empty genome lists for partition 1 and 2
         genomes1 = []
         genomes2 = []
@@ -298,7 +298,7 @@ def correct_root(root, tree, pan):
     min_av_cn = 100000000
     
     # loop over all nodes except the root
-    for node in tree.iter_descendants():
+    for node in tree.descendants():
         genomes1, genomes2 = partition_genomes(reprfs_genomes, node)
         overlap = set(genomes1) & set(genomes2) # intersection
         # if genomes that overlap in the midpoint bipartition do not all
@@ -431,9 +431,9 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     with open(f"{dio_tmp}/tree/tree.treefile", "r") as ftree:
         tree = Tree(ftree)
     midoutgr = tree.get_midpoint_outgroup()
-    genes_subfam1 = midoutgr.get_leaf_names()
+    genes_subfam1 = midoutgr.leaf_names()
     midoutgr.detach()
-    genes_subfam2 = tree.get_leaf_names()
+    genes_subfam2 = tree.leaf_names()
     pan1 = pan.loc[genes_subfam1].copy()
     pan2 = pan.loc[genes_subfam2].copy()
     family = pan.orthogroup.tolist()[0]
