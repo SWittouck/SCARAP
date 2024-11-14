@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scarap"
-version = "0.4.0"
+version = "1.0.0"
 authors = [
   { name = "Stijn Wittouck", email = "stijn.wittouck@uantwerpen.be" }
 ]
