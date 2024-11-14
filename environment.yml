@@ -6,5 +6,4 @@ dependencies:
 - bioconda::mafft
 - bioconda::mmseqs2
 - pip:
-  - -r requirements.txt
   - .
