@@ -8,26 +8,35 @@ SCARAP is a toolkit with modules for various tasks related to comparative genomi
 
 ## Installation 
 
-You can install SCARAP through [conda](https://docs.conda.io/projects/miniconda/en/latest/#quick-command-line-install): 
+### Pip 
 
-```
-git clone https://github.com/swittouck/scarap.git
-cd scarap
-conda env create -f environment.yml 
-```
+First make sure that MAFFT and MMseqs2 are properly installed. Then install SCARAP with pip: 
 
-You can then run SCARAP as follows: 
+      pip install scarap
 
-```
-conda activate scarap
-scarap -h
-conda deactivate
-```
+### Conda
+
+There is no conda recipe for SCARAP yet. You can install SCARAP in a dedicated conda environment as follows. 
+
+First, create and activate a new conda environment: 
+
+      conda create -n scarap python=3.11
+      conda activate scarap
+
+Next, install the dependencies: 
+
+      conda install bioconda::mafft bioconda::mmseqs2
+
+Finally, install SCARAP: 
+
+      pip install scarap 
+
+### Manual install
 
 You can also install SCARAP manually by cloning it and installing the following dependencies: 
 
-* [Python3](https://www.python.org/) version >= 3.6.7
-* Python libraries:
+* [Python3](https://www.python.org/) version >= 3.6.7 and < 3.13
+* Python packages:
     * [biopython](https://biopython.org/) version >= 1.67
     * [ete3](http://etetoolkit.org/) version >= 3.1.1
     * [numpy](https://numpy.org/) version >=1.16.5
