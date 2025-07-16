@@ -8,26 +8,32 @@ SCARAP is a toolkit with modules for various tasks related to comparative genomi
 
 ## Installation 
 
-You can install SCARAP through [conda](https://docs.conda.io/projects/miniconda/en/latest/#quick-command-line-install): 
+The easiest way to get started is to install SCARAP using conda.
 
-```
-git clone https://github.com/swittouck/scarap.git
-cd scarap
-conda env create -f environment.yml 
-```
+### Conda
 
-You can then run SCARAP as follows: 
+First, create and activate a new conda environment: 
 
-```
-conda activate scarap
-scarap -h
-conda deactivate
-```
+      conda create -n scarap python=3.11
+      conda activate scarap
+
+Then install from the recipe on bioconda: 
+
+      conda install bioconda::scarap
+
+
+### Pip 
+
+First make sure that MAFFT and MMseqs2 are properly installed. Then install SCARAP with pip: 
+
+      pip install scarap
+
+### Manual install
 
 You can also install SCARAP manually by cloning it and installing the following dependencies: 
 
-* [Python3](https://www.python.org/) version >= 3.6.7
-* Python libraries:
+* [Python3](https://www.python.org/) version >= 3.6.7 and < 3.13
+* Python packages:
     * [biopython](https://biopython.org/) version >= 1.67
     * [ete3](http://etetoolkit.org/) version >= 3.1.1
     * [numpy](https://numpy.org/) version >=1.16.5
@@ -139,4 +145,6 @@ All feedback and suggestions very welcome at stijn.wittouck[at]uantwerpen.be. Yo
 
 ## Citation
 
-A manuscript describing SCARAP and its validation has been prepared and will (hopefully) be published shortly. 
+If you've found SCARAP useful in your own work, please cite the following manuscript:
+
+      Wittouck et al. (2025) "SCARAP: scalable cross-species comparative genomics of prokaryotes", Bioinformatics, Volume 41, Issue 1, January 2025, btae735, https://doi.org/10.1093/bioinformatics/btae735
