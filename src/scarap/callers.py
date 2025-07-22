@@ -3,11 +3,22 @@ import logging
 import os
 import shutil
 import subprocess
+import tarfile
 import sys
 
 from pathlib import Path
 
 from scarap.utils import *
+
+def tar_gz_files(files:list, archive_name:str="archive.tar.gz"):
+    """Compress list of files into a tar archive"""
+    
+    with tarfile.open(archive_name, "w:gz") as tar:
+        for file in files:
+            tar.add(file, arcname=os.path.basename(file))
+
+    return archive_name
+
 
 def run_iqtree(fin_aln, dout_tree, threads, options):
     makedirs_smart(dout_tree)

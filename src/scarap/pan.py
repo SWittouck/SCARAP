@@ -15,6 +15,7 @@ from scarap.utils import *
 from scarap.readerswriters import *
 from scarap.computers import *
 from scarap.callers import *
+from scarap.helpers import archive_faafins, MAX_FAA_ARG_LEN
 
 ## helpers - ficlin module (F)
                 
@@ -943,6 +944,8 @@ def infer_superfamilies(faafins, dout, threads):
         
     # create mmseqs sequence database
     logging.info("creating mmseqs sequence database")
+    if len(faafins) > MAX_FAA_ARG_LEN:
+        faafins = archive_faafins(faafins, f"{dout}/seqeunceDB", f"{dout}/logs")
     run_mmseqs(["createdb"] + faafins + [f"{dout}/sequenceDB/db"], 
         f"{dout}/logs/createdb.log")
     
