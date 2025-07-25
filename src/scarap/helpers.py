@@ -14,7 +14,7 @@ def archive_faafins(faafins, dout_mmseqs, dout_logs):
     
     logging.info("Compressing fastas to archive")
     archive = tar_gz_files(faafins)
-    faafins = f"{dout_mmseqs}/faadb_temp"
+    faafins = [f"{dout_mmseqs}/faadb_temp"]
     run_mmseqs(["tar2db"] + [archive] + faafins + 
                ["--output-dbtype", "0"],
                f"{dout_logs}/create_faadb_temp.log")
