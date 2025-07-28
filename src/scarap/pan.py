@@ -944,7 +944,7 @@ def infer_superfamilies(faafins, dout, threads):
         
     # create mmseqs sequence database
     logging.info("creating mmseqs sequence database")
-    sequence_db_path =  f"{dout}/seqeunceDB"
+    sequence_db_path =  f"{dout}/sequenceDB"
     if len(faafins) > MAX_FAA_ARG_LEN:
         faafins = archive_faafins(faafins, sequence_db_path, f"{dout}/logs")
     run_mmseqs(["createdb"] + faafins + [sequence_db_path], 
