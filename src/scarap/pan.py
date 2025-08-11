@@ -104,8 +104,9 @@ def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
     
     # give warning if some sequences don't align to their cluster seed
     ids_to_seed = np.amax(seedmatrix, 1)
-    if np.any(ids_to_seed == 0):
-        logging.warning("ficlin: one or more sequences do not align to any "
+    seeds_not_aligned = np.count_nonzero(ids_to_seed == 0)
+    if seeds_not_aligned:
+        logging.warning(f"ficlin: {seeds_not_aligned} sequences do not align to any "
             "seed")
     
     # remove temporary output folder
