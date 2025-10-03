@@ -412,9 +412,13 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
     for orthogroup, rows in coregenome.groupby("orthogroup"):
         alifin = alifindict[orthogroup]
         sequencedict = {}
+        alilen = 0
         for record in SeqIO.parse(alifin, "fasta"):
             alilen = len(record.seq)
             sequencedict[record.id] = record.seq
+        if alilen == 0:
+            logging.warning(f"no sequences found in {alifin}")
+            continue 
         rows = rows.drop_duplicates("genome", keep = False)
         rows = pd.merge(pd.DataFrame({"genome": genomes}), rows, how = "left")
         for ix, row in rows.iterrows():
