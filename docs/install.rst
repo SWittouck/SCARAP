@@ -1,21 +1,35 @@
 Installing SCARAP
 =================
 
-You can install SCARAP through `conda <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_ ::
-    
-    git clone https://github.com/swittouck/scarap.git
-    cd scarap
-    conda env create -f environment.yml 
+The easiest way to get started is to install SCARAP using conda.
 
-You can then run SCARAP as follows ::
-    
+Conda
+-----
+
+First, create and activate a new conda environment: ::
+
+    conda create -n scarap python=3.11
     conda activate scarap
-    scarap -h
-    conda deactivate
+
+Then install from the recipe on bioconda: ::
+
+    conda install bioconda::scarap    
+
+
+Pip
+---
+
+First make sure that MAFFT and MMseqs2 are properly installed. Then install SCARAP with pip: ::
+
+    pip install scarap
+
+
+Manual install
+--------------
 
 You can also install SCARAP manually by cloning it and installing the following dependencies:
 
-* `Python3 <https://www.python.org/>`_ version \>= 3.6.7
+* `Python3 <https://www.python.org/>`_ version \>= 3.6.7 and < 3.13
     * `numpy <https://numpy.org/>`_ version \>= 1.16.5
     * `scipy <https://www.scipy.org/>`_ version \>= 1.4.1
     * `pandas version <https://pandas.pydata.org/>`_ \>= 1.5.3
