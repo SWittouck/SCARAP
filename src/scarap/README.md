@@ -34,10 +34,10 @@ Remark: all scripts import utils
 
 The script pan.py implements various pangenome inference strategies. Its functions are structured as follows:
 
-* The top-level pangenome inference function is **infer_pangeome**. Its main arguments are a list of faa files and the pangenome inference strategy. It calls the function infer_superfamilies and then applies the function split_superfamily to all superfamilies in parallel. 
+* The top-level pangenome inference function is **infer_pangenome**. Its main arguments are a list of faa files and the pangenome inference strategy. It calls the function infer_superfamilies and then applies the function split_superfamily to all superfamilies in parallel. 
 * The function **split_superfamily** initializes the necessary data structures depending on the requested strategy and calls a strategy-specific function with the name split_family_recursive_STR (where STR is the strategy name, e.g. split_family_recursive_LHT). 
 * The **split_family_recursive_STR** function will split a superfamily in the set of final families, by splitting the family into two subfamilies recursively. Per recursion iteration, it goes through the following steps:
-    1) it checks wether splitting if even an option (e.g. families with only one or two genes aren't splittable)
+    1) it checks wether splitting if even an option (e.g. families with only one or two genes are not splittable)
     2) it calls a strategy-specific splitting function to perform the actual split of the family into two subfamilies
     3) it checks if the split should actually happen based on the genome content of the subfamilies
     4) if the split should happen, it finishes the split and calls itself on the subfamilies to start the next iterations
