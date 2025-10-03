@@ -15,6 +15,7 @@ from scarap.utils import *
 from scarap.readerswriters import *
 from scarap.computers import *
 from scarap.callers import *
+from scarap.helpers import archive_faafins, MAX_FAA_ARG_LEN
 
 ## helpers - ficlin module (F)
                 
@@ -944,7 +945,10 @@ def infer_superfamilies(faafins, dout, threads):
         
     # create mmseqs sequence database
     logging.info("creating mmseqs sequence database")
-    run_mmseqs(["createdb"] + faafins + [f"{dout}/sequenceDB/db"], 
+    sequence_db_path =  f"{dout}/sequenceDB"
+    if len(faafins) > MAX_FAA_ARG_LEN:
+        faafins = archive_faafins(faafins, sequence_db_path, f"{dout}/logs")
+    run_mmseqs(["createdb"] + faafins + [f"{sequence_db_path}/db"], 
         f"{dout}/logs/createdb.log")
     
     # create preclusters with mmseqs cluster module (includes mmseqs linclust)
@@ -1022,9 +1026,13 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
     
     logging.info("constructing gene table")
     genes = extract_genes(faafins)
+    
     logging.info("checking if gene names are unique")
     if not genes.gene.is_unique:
-        logging.error("gene names are not unique") 
+        duplicated_genes = genes.gene.duplicated()
+        genomes_with_duplication = genes.genome[duplicated_genes].unique()
+        logging.error("gene names are not unique\n the following genomes " +
+            f"have duplicated genes: {genomes_with_duplication}") 
         sys.exit(1)
     
     if (len(faafins)) == 1:

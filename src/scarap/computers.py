@@ -366,7 +366,7 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
     
 def create_pseudogenome(pangenome, faapaths, tmpdio):
     "Returns a pseudogenome with one representative gene per orthogroup."
-    os.makedirs(tmpdio)
+    os.makedirs(tmpdio, exist_ok=True)
     gather_orthogroup_sequences(pangenome, faapaths, tmpdio)
     genes = [None] * pangenome["orthogroup"].nunique()
     for ix, ogfin in enumerate(listpaths(tmpdio)):
@@ -412,9 +412,13 @@ def construct_supermatrix(coregenome, alifins, supermatrixfout):
     for orthogroup, rows in coregenome.groupby("orthogroup"):
         alifin = alifindict[orthogroup]
         sequencedict = {}
+        alilen = 0
         for record in SeqIO.parse(alifin, "fasta"):
             alilen = len(record.seq)
             sequencedict[record.id] = record.seq
+        if alilen == 0:
+            logging.warning(f"no sequences found in {alifin}")
+            continue 
         rows = rows.drop_duplicates("genome", keep = False)
         rows = pd.merge(pd.DataFrame({"genome": genomes}), rows, how = "left")
         for ix, row in rows.iterrows():
