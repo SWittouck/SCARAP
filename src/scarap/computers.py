@@ -366,7 +366,7 @@ def gather_orthogroup_sequences(pangenome, faapaths, dout_orthogroups,
     
 def create_pseudogenome(pangenome, faapaths, tmpdio):
     "Returns a pseudogenome with one representative gene per orthogroup."
-    os.makedirs(tmpdio)
+    os.makedirs(tmpdio, exist_ok=True)
     gather_orthogroup_sequences(pangenome, faapaths, tmpdio)
     genes = [None] * pangenome["orthogroup"].nunique()
     for ix, ogfin in enumerate(listpaths(tmpdio)):
