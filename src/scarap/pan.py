@@ -1025,11 +1025,13 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
     
     logging.info("constructing gene table")
     genes = extract_genes(faafins)
+    
     logging.info("checking if gene names are unique")
     if not genes.gene.is_unique:
         duplicated_genes = genes.gene.duplicated()
         genomes_with_duplication = genes.genome[duplicated_genes].unique()
-        logging.error(f"gene names are not unique. The following genomes have duplicated genes: {genomes_with_duplication}") 
+        logging.error("gene names are not unique\n the following genomes " +
+            f"have duplicated genes: {genomes_with_duplication}") 
         sys.exit(1)
     
     if (len(faafins)) == 1:
