@@ -947,7 +947,7 @@ def infer_superfamilies(faafins, dout, threads):
     sequence_db_path =  f"{dout}/sequenceDB"
     if len(faafins) > MAX_FAA_ARG_LEN:
         faafins = archive_faafins(faafins, sequence_db_path, f"{dout}/logs")
-    run_mmseqs(["createdb"] + faafins + [sequence_db_path], 
+    run_mmseqs(["createdb"] + faafins + [f"{sequence_db_path}/db"], 
         f"{dout}/logs/createdb.log")
     
     # create preclusters with mmseqs cluster module (includes mmseqs linclust)
