@@ -8,10 +8,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7.1"
+          - python-version: "3.7.17"
             os: ubuntu-22.04
-          - python-version: "3.12.1"
-            os: ubuntu-latest
+          - python-version: "3.12.11"
+            os: ubuntu-24.04
 
     name: build-linux
     runs-on: ${{ matrix.os }}
