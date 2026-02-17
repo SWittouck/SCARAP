@@ -14,7 +14,7 @@ maintainers = [
 ]
 description = "A toolkit for prokaryotic comparative genomics"
 readme = "README.md"
-requires-python = ">=3.6.7,<3.13"
+requires-python = ">=3.7,<3.13"
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -22,11 +22,11 @@ classifiers = [
 ]
 dependencies = [
     "wheel",
-    "biopython>=1.67",
-    "ete3>=3.1.1",
-    "numpy>=1.16.5",
-    "scipy>=1.4.1",
-    "pandas"
+    "biopython>=1.79,<2",
+    "ete3>=3.1,<4",
+    "numpy>=1.18,<3",
+    "scipy>=1.4,<2",
+    "pandas>=1.3,<3"
 ]
 
 [project.urls]
