@@ -5,7 +5,6 @@ import pandas as pd
 import shutil
 
 from argparse import Namespace
-from concurrent.futures import ProcessPoolExecutor
 from statistics import median, mean
 from random import sample
 

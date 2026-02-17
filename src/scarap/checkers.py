@@ -6,7 +6,6 @@ import sys
 from collections import Counter
 
 from Bio import SeqIO
-from pathlib import Path
 from scarap.utils import *
 
 def check_tool(tool, arguments = []):
