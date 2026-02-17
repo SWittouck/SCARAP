@@ -49,9 +49,6 @@ def check_mmseqs():
     # Old version showed the first 5 characters of the commit sha for the version
         release = releases_tested.get(version, "unknown")
     logging.info(f"detected MMseqs2 version {version} (release {release})")
-    if not release in releases_tested.values():
-        logging.warning("SCARAP has only been tested with MMseqs2 "
-            "releases 11, 12 and 13")
 
 def check_infile(infile):
     if not os.path.isfile(infile):
