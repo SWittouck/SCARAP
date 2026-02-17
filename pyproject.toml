@@ -34,7 +34,7 @@ Homepage = "https://github.com/SWittouck/SCARAP"
 Issues = "https://github.com/SWittouck/SCARAP/issues"
 
 [project.scripts]
-scarap = "scarap.__main__:main"
+scarap = "scarap.cli:main"
 
 [tools.setuptools.packages.find]
 where = "src"
