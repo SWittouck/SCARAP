@@ -17,15 +17,9 @@ The easiest way to get started is to install SCARAP using conda.
 
 ### Conda
 
-First, create and activate a new conda environment: 
+Install the recipe from bioconda, looking for the dependencies on conda-forge and bioconda (in that order): 
 
-      conda create -n scarap python=3.11
-      conda activate scarap
-
-Then install from the recipe on bioconda: 
-
-      conda install bioconda::scarap
-
+      conda install -c conda-forge -c bioconda bioconda::scarap
 
 ### Pip 
 
