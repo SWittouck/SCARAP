@@ -45,7 +45,7 @@ jobs:
       uses: mig4/setup-bats@v1
       with:
         bats-version: 1.2.1
-    - uses: brokenpip3/setup-bats-libs@1.5.2
+    - uses: brokenpip3/setup-bats-libs@0.0.2
       with: 
         support-path: ${{ github.workspace }}/test/test_helper/bats-support
         assert-path: ${{ github.workspace }}/test/test_helper/bats-assert
