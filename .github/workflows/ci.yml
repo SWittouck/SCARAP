@@ -1,6 +1,7 @@
 name: CI
 
 on: 
+  workflow_dispatch: 
   push:
     paths:
       - '**.py'
@@ -11,7 +12,6 @@ on:
       - '**.bats'
 jobs:
   build:
-  
     strategy:
       matrix:
         include:
