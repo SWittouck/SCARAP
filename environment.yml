@@ -1,9 +1,0 @@
-# this file is used by the GitHub actions tests
-name: scarap
-dependencies:
-- bioconda::mafft
-- bioconda::mmseqs2
-- python>=3.6.7,<3.13
-- pip
-- pip:
-  - .
