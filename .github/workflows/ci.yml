@@ -6,10 +6,12 @@ on:
     paths:
       - '**.py'
       - '**.bats'
+      - '**.yml'
   pull_request:
     paths:
       - '**.py'
       - '**.bats'
+      - '**.yml'
 jobs:
   build:
     strategy:
