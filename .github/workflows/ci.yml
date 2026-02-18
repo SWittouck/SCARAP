@@ -42,7 +42,7 @@ jobs:
         environment-file: ${{ matrix.env-file }}
         auto-activate: true
     - name: Setup BATS
-      uses: mig4/setup-bats@v4
+      uses: mig4/setup-bats@v1
       with:
         bats-version: 1.2.1
     - uses: brokenpip3/setup-bats-libs@1.5.2
