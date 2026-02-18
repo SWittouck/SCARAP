@@ -1,3 +1,8 @@
+[![CI](https://github.com/SWittouck/SCARAP/actions/workflows/ci.yml/badge.svg)](https://github.com/SWittouck/SCARAP/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/release/Swittouck/SCARAP.svg)](https://github.com/Swittouck/SCARAP/releases)
+[![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/SCARAP.svg)](https://bioconda.github.io/recipes/SCARAP/README.html)
+[![DOI:10.1093/bioinformatics/btae735](https://zenodo.org/badge/DOI/10.1093/bioinformatics/btae735.svg)](https://doi.org/10.1093/bioinformatics/btae735)
+
 # SCARAP: pangenome inference and comparative genomics of prokaryotes
 
 SCARAP is a toolkit with modules for various tasks related to comparative genomics of prokaryotes. SCARAP has been designed to be fast and scalable. Its main feature is pangenome inference, but it also has modules for direct core genome inference (without inferring the full pangenome), subsampling representatives from a (large) set of genomes and constructing a concatenated core gene alignment ("supermatrix") that can later be used for phylogeny inference.  SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
