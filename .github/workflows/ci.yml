@@ -38,7 +38,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
-        activate-environment: anaconda-client-env
+        activate-environment: ""
         environment-file: ${{ matrix.env-file }}
         auto-activate: true
     - name: Setup BATS
