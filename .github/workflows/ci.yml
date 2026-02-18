@@ -26,6 +26,9 @@ jobs:
 
     name: build-linux
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
     - uses: actions/checkout@v6
     - name: Checkout test data
@@ -38,7 +41,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
-        activate-environment: ""
+        activate-environment: "test-env"
         environment-file: ${{ matrix.env-file }}
         auto-activate: true
     - name: Setup BATS
