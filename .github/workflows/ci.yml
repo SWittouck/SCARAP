@@ -1,7 +1,14 @@
 name: CI
 
-on: [push]
-
+on: 
+  push:
+    paths:
+      - '**.py'
+      - '**.bats'
+  pull_request:
+    paths:
+      - '**.py'
+      - '**.bats'
 jobs:
   build:
   
