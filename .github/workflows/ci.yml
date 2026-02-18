@@ -17,10 +17,10 @@ jobs:
         include:
           - python-version: "3.7.17"
             os: ubuntu-22.04
-            env-file: "test/environment_max.yml"
+            env-file: "test/environment_min.yml"
           - python-version: "3.12.11"
             os: ubuntu-24.04
-            env-file: "test/environment_min.yml"
+            env-file: "test/environment_max.yml"
 
     name: build-linux
     runs-on: ${{ matrix.os }}
