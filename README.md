@@ -31,7 +31,7 @@ First make sure that MAFFT and MMseqs2 are properly installed. Then install SCAR
 
 You can also install SCARAP manually by cloning it and installing the following dependencies: 
 
-* [Python3](https://www.python.org/) version >= 3.7, < 3.13
+* [Python3](https://www.python.org/) version >= 3.8, < 3.13
 * Python packages (see pyproject.toml file for versions):
     * [biopython](https://biopython.org/)
     * [ete3](http://etetoolkit.org/)
