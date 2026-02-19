@@ -82,11 +82,12 @@ def run_pan_hier(args):
     os.makedirs(pseudopandio, exist_ok = True)
 
     nonhier_args = dict(
-        threads=args.threads,
-        method=args.method,
-        max_align=args.max_align,
-        max_reps=args.max_reps,
-        min_reps=args.min_reps
+        threads = args.threads,
+        method = args.method,
+        max_align = args.max_align,
+        max_reps = args.max_reps,
+        min_reps = args.min_reps,
+        speciesmode = args.speciesmode
     )
     
     logging.info("PHASE 1: inferring species-level pangenomes")
@@ -614,6 +615,7 @@ def run_core(args):
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
     max_cores = args.max_core_genes
+    speciesmode = args.speciesmode
     threads = args.threads
     
     # define paths
@@ -640,7 +642,7 @@ def run_core(args):
     logging.info("STEP 1 - inferring pangenome of seed genomes")
     args_pan = Namespace(faa_files = fout_seedpaths, outfolder = dout_seedpan,
         method = method, min_reps = min_reps, max_reps = max_reps, 
-        max_align = max_align, threads = threads)
+        max_align = max_align, speciesmode = speciesmode, threads = threads)
     run_pan(args_pan)
     
     logging.info("STEP 2 - building database of seed core genes and searching "
