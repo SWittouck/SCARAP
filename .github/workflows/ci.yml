@@ -17,15 +17,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7.17"
+          - python-version: "3.8"
             os: ubuntu-22.04
             env-file: "test/environment_min.yml"
-          - python-version: "3.12.11"
+          - python-version: "3.12"
             os: ubuntu-24.04
             env-file: "test/environment_max.yml"
 
     name: build-linux
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
     - uses: actions/checkout@v6
     - name: Checkout test data
@@ -38,14 +41,14 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
-        activate-environment: anaconda-client-env
+        activate-environment: "test-env"
         environment-file: ${{ matrix.env-file }}
         auto-activate: true
     - name: Setup BATS
-      uses: mig4/setup-bats@v4
+      uses: mig4/setup-bats@v1
       with:
         bats-version: 1.2.1
-    - uses: brokenpip3/setup-bats-libs@1.5.2
+    - uses: brokenpip3/setup-bats-libs@0.0.2
       with: 
         support-path: ${{ github.workspace }}/test/test_helper/bats-support
         assert-path: ${{ github.workspace }}/test/test_helper/bats-assert
