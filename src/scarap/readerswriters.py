@@ -30,6 +30,22 @@ def read_mmseqs_table(fin):
     table = pd.read_csv(fin, sep = "\t", names = names)
     return(table)
 
+def read_mmseqs_clustertable(fin):
+    colnames = ["cluster", "gene"]
+    clustertable = pd.read_csv(fin, sep = "\t", names = colnames)
+    clustertable["cluster"] = clustertable["cluster"].str.partition(" ")[0]
+    clustertable["gene"] = clustertable["gene"].str.partition(" ")[0]
+    clustertable = clustertable[["gene", "cluster"]]
+    return(clustertable)
+
+def read_search_hits(fin):
+    colnames = ["gene", "profile", "score"]
+    hits = pd.read_csv(fin, sep = "\t", names = colnames,
+        usecols = [0, 1, 2])
+    hits["gene"] = hits["gene"].str.partition(" ")[0]
+    hits["profile"] = hits["profile"].str.partition(" ")[0]
+    return(hits)
+
 def read_fasta(fin):
     with open_smart(fin) as hin:
         seqs = list(SeqIO.parse(hin, "fasta"))

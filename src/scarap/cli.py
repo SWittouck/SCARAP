@@ -99,6 +99,7 @@ def parse_arguments():
     h_seeds = "number of seed genomes to use [default 100]"
     h_species = "input file with species of genomes; if given, a hierarchical "\
         "pangenome strategy will be used for final database selection"
+    h_speciesmode = "run in species mode [default False]"
     h_threads = "number of threads to use"
     
     # other interface components
@@ -118,6 +119,8 @@ def parse_arguments():
     parser_pan.add_argument("-x", "--max-align", default = 0, type = int,
         help = h_max_align)
     parser_pan.add_argument("-s", "--species", help = h_species)
+    parser_pan.add_argument("-o", "--speciesmode", action = "store_true",
+        help = h_speciesmode)
     parser_pan.add_argument("-t", "--threads", default = 8, type = int, 
         help = h_threads)
     parser_pan.add_argument("-c", "--cont", action = "store_true",
@@ -144,6 +147,8 @@ def parse_arguments():
         type = float, help = h_core_filter + " [default 0.95]")
     parser_core.add_argument("-m", "--max-core-genes", default = 0,
         type = int, help = h_max_core_genes)
+    parser_core.add_argument("-o", "--speciesmode", action = "store_true",
+        help = h_speciesmode)
     parser_core.add_argument("-t", "--threads", default = 8,
         type = int, help = h_threads)
     parser_core.add_argument("-c", "--cont", action = "store_true",

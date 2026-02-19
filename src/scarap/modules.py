@@ -58,7 +58,7 @@ def run_pan_nonhier(args):
             f"{args.min_reps} to {args.max_reps} representative sequences will "
             "be used")
         infer_pangenome(faafins, args.method, args.min_reps, args.max_reps,
-            args.max_align, args.outfolder, args.threads)
+            args.max_align, args.speciesmode, args.outfolder, args.threads)
 
 def run_pan_hier(args):
   
@@ -198,11 +198,7 @@ def run_build(args):
     run_profilesearch(fins_faas, fouts_alis, fout_hits, dout_tmp, threads)
     
     logging.info("training score cutoffs for profiles") 
-    colnames = ["gene", "profile", "score"]
-    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
-        usecols = [0, 1, 2])
-    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+    hits = read_search_hits(fout_hits)
     cutoffs = train_cutoffs(hits, pangenome)
     
     if core_filter != 0 or max_cores != 0:
@@ -258,11 +254,7 @@ def run_search(args):
         run_profilesearch(fins_queries, fins_alis, fout_hits, dout_tmp, threads)
     
     logging.info("reading hits and score cutoffs")
-    colnames = ["gene", "profile", "score"]
-    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
-        usecols = [0, 1, 2])
-    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+    hits = read_search_hits(fout_hits)
     colnames = ["profile", "cutoff"]
     cutoffs = pd.read_csv(fin_cutoffs, sep = "\t", names = colnames)
     
