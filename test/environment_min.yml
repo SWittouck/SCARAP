@@ -6,14 +6,14 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - bioconda::mafft=7.407
-  - bioconda::mmseqs2=11.e1a1c
+  - bioconda::mafft=7.525
+  - bioconda::mmseqs2=18.8cc5c
   - python=3.9 # 3.9 is earliest version with ete4 on conda-forge
-  - biopython=1.79
+  - biopython=1.85
   - conda-forge::ete4=4.1.1  
-  - numpy=1.18.5
-  - scipy=1.4.1
-  - pandas=1.3.5
+  - numpy=2.02
+  - scipy=1.13.1
+  - pandas=2.3.1
   - pip
   - pip:
     - ..
