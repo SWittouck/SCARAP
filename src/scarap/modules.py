@@ -5,7 +5,6 @@ import pandas as pd
 import shutil
 
 from argparse import Namespace
-from concurrent.futures import ProcessPoolExecutor
 from statistics import median, mean
 from random import sample
 
@@ -59,7 +58,7 @@ def run_pan_nonhier(args):
             f"{args.min_reps} to {args.max_reps} representative sequences will "
             "be used")
         infer_pangenome(faafins, args.method, args.min_reps, args.max_reps,
-            args.max_align, args.outfolder, args.threads)
+            args.max_align, args.speciesmode, args.outfolder, args.threads)
 
 def run_pan_hier(args):
   
@@ -83,11 +82,12 @@ def run_pan_hier(args):
     os.makedirs(pseudopandio, exist_ok = True)
 
     nonhier_args = dict(
-        threads=args.threads,
-        method=args.method,
-        max_align=args.max_align,
-        max_reps=args.max_reps,
-        min_reps=args.min_reps
+        threads = args.threads,
+        method = args.method,
+        max_align = args.max_align,
+        max_reps = args.max_reps,
+        min_reps = args.min_reps,
+        speciesmode = args.speciesmode
     )
     
     logging.info("PHASE 1: inferring species-level pangenomes")
@@ -199,11 +199,7 @@ def run_build(args):
     run_profilesearch(fins_faas, fouts_alis, fout_hits, dout_tmp, threads)
     
     logging.info("training score cutoffs for profiles") 
-    colnames = ["gene", "profile", "score"]
-    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
-        usecols = [0, 1, 2])
-    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+    hits = read_search_hits(fout_hits)
     cutoffs = train_cutoffs(hits, pangenome)
     
     if core_filter != 0 or max_cores != 0:
@@ -259,11 +255,7 @@ def run_search(args):
         run_profilesearch(fins_queries, fins_alis, fout_hits, dout_tmp, threads)
     
     logging.info("reading hits and score cutoffs")
-    colnames = ["gene", "profile", "score"]
-    hits = pd.read_csv(fout_hits, sep = "\t", names = colnames, 
-        usecols = [0, 1, 2])
-    hits[["gene", "profile"]] = hits[["gene", "profile"]].\
-        applymap(lambda x: x.split(" ")[0])
+    hits = read_search_hits(fout_hits)
     colnames = ["profile", "cutoff"]
     cutoffs = pd.read_csv(fin_cutoffs, sep = "\t", names = colnames)
     
@@ -623,6 +615,7 @@ def run_core(args):
     core_prefilter = args.core_prefilter
     core_filter = args.core_filter
     max_cores = args.max_core_genes
+    speciesmode = args.speciesmode
     threads = args.threads
     
     # define paths
@@ -649,7 +642,7 @@ def run_core(args):
     logging.info("STEP 1 - inferring pangenome of seed genomes")
     args_pan = Namespace(faa_files = fout_seedpaths, outfolder = dout_seedpan,
         method = method, min_reps = min_reps, max_reps = max_reps, 
-        max_align = max_align, threads = threads)
+        max_align = max_align, speciesmode = speciesmode, threads = threads)
     run_pan(args_pan)
     
     logging.info("STEP 2 - building database of seed core genes and searching "

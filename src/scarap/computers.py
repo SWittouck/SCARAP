@@ -5,7 +5,6 @@ import os
 import pandas as pd
 
 from Bio import SeqIO, SeqRecord
-from random import shuffle
 from statistics import mean
 
 from scarap.readerswriters import *
