@@ -1106,7 +1106,27 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align,
     print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
-        
+    logging.info(f"Identified {pangenome["orthogroup"].nunique()} orthogroups")
+
+    logging.info("Determining single-copy core orthogroups")
+    n_genomes = pangenome["genome"].nunique()
+    copynumbers = (
+        pangenome
+        .groupby(["genome", "orthogroup"])
+        .size()
+        .rename("copies")
+        .reset_index()
+    )
+    core = (
+        copynumbers.loc[copynumbers["copies"] == 1, "orthogroup"]
+        .value_counts()
+        .div(n_genomes)
+        .loc[lambda p: p >= 0.95]
+        .index
+        .tolist()
+    )
+    logging.info(f"Identified {len(core)} 95% single-copy core orthogroups")
+
     logging.info("assigning names to the gene families")
     nametable = pd.DataFrame({"old": pangenome["orthogroup"].unique()})
     nametable["sf"] = [f.split("_")[0] for f in nametable["old"]]
