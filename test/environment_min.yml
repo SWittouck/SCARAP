@@ -8,7 +8,7 @@ channels:
 dependencies:
   - bioconda::mafft=7.525
   - bioconda::mmseqs2=18.8cc5c
-  - python=3.9 # 3.9 is earliest version with ete4 on conda-forge
+  - python=3.10 # 3.10 is earliest version with ete4 on conda-forge
   - biopython=1.85
   - conda-forge::ete4=4.1.1  
   - numpy=2.02
