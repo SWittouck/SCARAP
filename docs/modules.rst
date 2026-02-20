@@ -14,7 +14,7 @@ Modules for other useful tasks are also available:
 
 -  ``build``: build a profile database for a core/pangenome
 -  ``search``: search query genes in a profile database
--  ``checkgenomes``: assess the genomes in a core genome
+-  ``checkgenomes``: assess the genomes in a core genome. Returns a table with `genome`, `completeness` and `contamination`.
 -  ``checkgroups``: assess the orthogroups in a core genome
 -  ``filter``: filter the genomes/orthogroups in a pangenome
 -  ``concat``: construct a concatenated core orthogroup alignment from a
