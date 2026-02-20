@@ -1,11 +1,10 @@
-# run: conda env create --file environment.yml
+# this file is used by the GitHub actions tests
 name: scarap
 dependencies:
-- python>=3.6.7
-- pip
 - bioconda::mafft
 - bioconda::mmseqs2
 - bioconda::iqtree
+- python>=3.7,<3.13
+- pip
 - pip:
-  - -r requirements.txt
   - .

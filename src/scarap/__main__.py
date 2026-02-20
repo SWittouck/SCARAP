@@ -4,7 +4,7 @@
 # interface.
 
 __author__ = "Stijn Wittouck"
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 import argparse
 import logging

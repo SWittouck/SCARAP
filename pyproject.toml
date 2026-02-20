@@ -4,13 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scarap"
-version = "0.4.0"
+version = "1.0.0"
 authors = [
-  { name="Stijn Wittouck", email="stijn.wittouck@uantwerpen.be" }
+  { name = "Stijn Wittouck", email = "stijn.wittouck@uantwerpen.be" }
+]
+maintainers = [
+  { name = "Stijn Wittouck", email = "stijn.wittouck@uantwerpen.be" },
+  { name = "Tim Van Rillaer", email = "tim.vanrillaer@uantwerpen.be" }
 ]
 description = "A toolkit for prokaryotic comparative genomics"
 readme = "README.md"
-requires-python = ">=3.0"
+requires-python = ">=3.6.7,<3.13"
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -24,6 +28,10 @@ dependencies = [
     "scipy>=1.4.1",
     "pandas"
 ]
+
+[project.urls]
+Homepage = "https://github.com/SWittouck/SCARAP"
+Issues = "https://github.com/SWittouck/SCARAP/issues"
 
 [project.scripts]
 scarap = "scarap.__main__:main"

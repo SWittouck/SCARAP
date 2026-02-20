@@ -1,5 +1,0 @@
-biopython>=1.67
-https://github.com/etetoolkit/ete/archive/ete4.zip
-numpy>=1.16.5
-scipy>=1.4.1
-pandas
