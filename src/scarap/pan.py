@@ -1106,7 +1106,8 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align,
     print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
-    logging.info(f"Identified {pangenome["orthogroup"].nunique()} orthogroups")
+    n_orthogroups = pangenome["orthogroup"].nunique()
+    logging.info(f"Identified {n_orthogroups} orthogroups")
 
     logging.info("Determining single-copy core orthogroups")
     n_genomes = pangenome["genome"].nunique()
