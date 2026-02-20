@@ -1,32 +1,49 @@
 name: CI
 
-on: [push]
-
+on: 
+  workflow_dispatch: 
+  push:
+    paths:
+      - '**.py'
+      - '**.bats'
+      - '**.yml'
+  pull_request:
+    paths:
+      - '**.py'
+      - '**.bats'
+      - '**.yml'
 jobs:
   build:
-  
     strategy:
       matrix:
         include:
-          - python-version: "3.7.17"
+          - python-version: "3.8"
             os: ubuntu-22.04
-          - python-version: "3.12.11"
+            env-file: "test/environment_min.yml"
+          - python-version: "3.12"
             os: ubuntu-24.04
+            env-file: "test/environment_max.yml"
 
     name: build-linux
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
     - name: Checkout test data
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
       with:
         repository: LebeerLab/SCARAP-testdata
         path: testdata
-    - name: Set up Python
-      uses: actions/setup-python@v3
+
+    - name: Set up conda
+      uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
-    
+        activate-environment: "test-env"
+        environment-file: ${{ matrix.env-file }}
+        auto-activate: true
     - name: Setup BATS
       uses: mig4/setup-bats@v1
       with:
@@ -36,13 +53,6 @@ jobs:
         support-path: ${{ github.workspace }}/test/test_helper/bats-support
         assert-path: ${{ github.workspace }}/test/test_helper/bats-assert
     
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-    - name: Install dependencies
-      run: |
-        conda env update --file environment.yml --name base
     - name: Test with bats
       run: |
        bats -r .

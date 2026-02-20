@@ -926,7 +926,7 @@ def split_superfamily(pan, strategy, din_fastas, min_reps, max_reps, max_align,
     print("|", end = "", flush = True)
     return(pan)
 
-def infer_superfamilies(faafins, dout, threads):
+def infer_superfamilies(faafins, dout, speciesmode, threads):
     """Infers superfamilies of a set of faa files. 
     
     Remarks: the pangenome with the superfamilies is written out to 
@@ -935,6 +935,7 @@ def infer_superfamilies(faafins, dout, threads):
     Args:
         faafins (list): Paths to .faa fasta files, one per genome. 
         dout (str): Output folder for the pangenome with the superfamilies.
+        speciesmode (bool): Whether to run in species mode.
         threads (int): Number of threads to use.
     """
     
@@ -956,51 +957,55 @@ def infer_superfamilies(faafins, dout, threads):
     
     # create preclusters with mmseqs cluster module (includes mmseqs linclust)
     logging.info("creating preclusters")
+    min_seq_id = "0.7" if speciesmode else "0.2"
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
         f"{dout}/tmp", "--max-seqs", "1000000", "-c", "0.5", "--cov-mode", "0",
-        "-e", "inf", "--min-seq-id", "0.2", "--cluster-mode", "0"], 
+        "-e", "inf", "--min-seq-id", min_seq_id, "--cluster-mode", "0"],
         f"{dout}/logs/cluster.log", 
         skip_if_exists = f"{dout}/preclusterDB/db.index", threads = threads)
-
-    # cluster the preclusters into the final clusters
-    logging.info("clustering the preclusters using profiles")
-    run_mmseqs(["result2profile", f"{dout}/sequenceDB/db",
-        f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
-        f"{dout}/profileDB/db"], f"{dout}/logs/result2profile.log",
-        skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
-    run_mmseqs(["profile2consensus", f"{dout}/profileDB/db", 
-        f"{dout}/profileDB/db_consensus"], 
-        f"{dout}/logs/profile2consensus.log")
-    run_mmseqs(["search", f"{dout}/profileDB/db",
-        f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
-        f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"],
-        f"{dout}/logs/search.log",
-        skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
-    run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
-        f"{dout}/clusterDB/db", "--cluster-mode", "2"],
-        f"{dout}/logs/clust.log",
-        skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
-
-    # create the pangenome file 
-    logging.info("compiling pangenome file with superfamilies")
     # why --full-header option? --> to avoid MMseqs2 extracting the
     # UniqueIdentifier part of sequences in UniProtKB format 
     # (see https://www.uniprot.org/help/fasta-headers)
     run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
         f"{dout}/preclusterDB/db", f"{dout}/preclusters.tsv", "--full-header"], 
         f"{dout}/logs/createtsv_preclusters.log")
-    run_mmseqs(["createtsv", f"{dout}/sequenceDB/db", f"{dout}/sequenceDB/db",
-        f"{dout}/clusterDB/db", f"{dout}/clusters.tsv", "--full-header"],
-        f"{dout}/logs/createtsv_clusters.log")
-    preclustertable = pd.read_csv(f"{dout}/preclusters.tsv", sep = "\t", 
-        names = ["precluster", "gene"])
-    preclustertable = preclustertable.map(lambda x: x.split(" ")[0])
-    clustertable = pd.read_csv(f"{dout}/clusters.tsv", sep = "\t",
-        names = ["cluster", "precluster"])
-    clustertable = clustertable.map(lambda x: x.split(" ")[0])
-    genes = pd.merge(preclustertable, clustertable, on = "precluster")
-    genes = genes.rename(columns = {"cluster": "orthogroup"})
-    genes = genes.drop(["precluster"], axis = 1)
+
+    # cluster the preclusters into the final clusters
+    if not speciesmode:
+        logging.info("clustering the preclusters using profiles")
+        run_mmseqs(["result2profile", f"{dout}/sequenceDB/db",
+            f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
+            f"{dout}/profileDB/db"], f"{dout}/logs/result2profile.log",
+            skip_if_exists = f"{dout}/profileDB/db.index", threads = threads)
+        run_mmseqs(["profile2consensus", f"{dout}/profileDB/db",
+            f"{dout}/profileDB/db_consensus"],
+            f"{dout}/logs/profile2consensus.log")
+        run_mmseqs(["search", f"{dout}/profileDB/db",
+            f"{dout}/profileDB/db_consensus", f"{dout}/alignmentDB/db",
+            f"{dout}/tmp", "-c", "0.5", "--cov-mode", "1"],
+            f"{dout}/logs/search.log",
+            skip_if_exists = f"{dout}/alignmentDB/db.index", threads = threads)
+        run_mmseqs(["clust", f"{dout}/profileDB/db", f"{dout}/alignmentDB/db",
+            f"{dout}/clusterDB/db", "--cluster-mode", "2"],
+            f"{dout}/logs/clust.log",
+            skip_if_exists = f"{dout}/clusterDB/db.index", threads = threads)
+        run_mmseqs(["createtsv", f"{dout}/sequenceDB/db",
+            f"{dout}/sequenceDB/db", f"{dout}/clusterDB/db",
+            f"{dout}/clusters.tsv", "--full-header"],
+            f"{dout}/logs/createtsv_clusters.log")
+
+    # create the pangenome file
+    logging.info("compiling pangenome file with superfamilies")
+    preclustertable = read_mmseqs_clustertable(f"{dout}/preclusters.tsv")
+    preclustertable = preclustertable.rename(columns = {"cluster": "precluster"})
+    if speciesmode:
+        genes = preclustertable.rename(columns = {"precluster": "orthogroup"})
+    else:
+        clustertable = read_mmseqs_clustertable(f"{dout}/clusters.tsv")
+        clustertable = clustertable.rename(columns = {"gene": "precluster"})
+        genes = pd.merge(preclustertable, clustertable, on = "precluster")
+        genes = genes.rename(columns = {"cluster": "orthogroup"})
+        genes = genes.drop(["precluster"], axis = 1)
     
     # rename the superfamilies 
     famnames_old = genes["orthogroup"].unique()
@@ -1011,13 +1016,14 @@ def infer_superfamilies(faafins, dout, threads):
     # write pangenome file
     write_tsv(genes, f"{dout}/genes.tsv")
 
-def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout, 
-    threads):
+def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align,
+    speciesmode, dout, threads):
     """Infers the pangenome of a set of genomes and writes it to disk. 
     
     Args:
         faafins (list): Paths to .faa fasta files, one per genome. 
         splitstrategy (str): Splitting strategy.
+        speciesmode (bool): Whether to run in species mode.
         dout (str): Output folder for the pangenome.
         threads (int): Number of threads to use.
     """
@@ -1055,7 +1061,7 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
   
     logging.info("STAGE 1: creation of superfamilies")
     os.makedirs(f"{dout}/superfamilies", exist_ok = True)
-    infer_superfamilies(faafins, f"{dout}/superfamilies", threads)
+    infer_superfamilies(faafins, f"{dout}/superfamilies", speciesmode, threads)
     genes_superfams = pd.read_csv(f"{dout}/superfamilies/genes.tsv", 
         sep = "\t", names = ["gene", "orthogroup"])
     pangenome = pd.merge(genes, genes_superfams, on = "gene")
@@ -1104,7 +1110,28 @@ def infer_pangenome(faafins, splitstrategy, min_reps, max_reps, max_align, dout,
     print("")
     pangenome = pd.concat(list(pangenome_splitable) +
         [pan for name, pan in pangenome if not name in splitable])
-        
+    n_orthogroups = pangenome["orthogroup"].nunique()
+    logging.info(f"Identified {n_orthogroups} orthogroups")
+
+    logging.info("Determining single-copy core orthogroups")
+    n_genomes = pangenome["genome"].nunique()
+    copynumbers = (
+        pangenome
+        .groupby(["genome", "orthogroup"])
+        .size()
+        .rename("copies")
+        .reset_index()
+    )
+    core = (
+        copynumbers.loc[copynumbers["copies"] == 1, "orthogroup"]
+        .value_counts()
+        .div(n_genomes)
+        .loc[lambda p: p >= 0.95]
+        .index
+        .tolist()
+    )
+    logging.info(f"Identified {len(core)} 95% single-copy core orthogroups")
+
     logging.info("assigning names to the gene families")
     nametable = pd.DataFrame({"old": pangenome["orthogroup"].unique()})
     nametable["sf"] = [f.split("_")[0] for f in nametable["old"]]

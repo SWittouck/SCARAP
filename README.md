@@ -1,3 +1,8 @@
+[![CI](https://github.com/SWittouck/SCARAP/actions/workflows/ci.yml/badge.svg)](https://github.com/SWittouck/SCARAP/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/release/Swittouck/SCARAP.svg)](https://github.com/Swittouck/SCARAP/releases)
+[![Bioconda Downloads](https://img.shields.io/conda/dn/bioconda/SCARAP.svg)](https://bioconda.github.io/recipes/SCARAP/README.html)
+[![DOI:10.1093/bioinformatics/btae735](https://zenodo.org/badge/DOI/10.1093/bioinformatics/btae735.svg)](https://doi.org/10.1093/bioinformatics/btae735)
+
 # SCARAP: pangenome inference and comparative genomics of prokaryotes
 
 SCARAP is a toolkit with modules for various tasks related to comparative genomics of prokaryotes. SCARAP has been designed to be fast and scalable. Its main feature is pangenome inference, but it also has modules for direct core genome inference (without inferring the full pangenome), subsampling representatives from a (large) set of genomes and constructing a concatenated core gene alignment ("supermatrix") that can later be used for phylogeny inference.  SCARAP has been designed for prokaryotes but should work for eukaryotic genomes as well. It can handle large genome datasets on a range of taxonomic levels; it has been tested on datasets with prokaryotic genomes from the species to the order level. 
@@ -12,15 +17,9 @@ The easiest way to get started is to install SCARAP using conda.
 
 ### Conda
 
-First, create and activate a new conda environment: 
+Install the recipe from bioconda, looking for the dependencies on conda-forge and bioconda (in that order): 
 
-      conda create -n scarap python=3.11
-      conda activate scarap
-
-Then install from the recipe on bioconda: 
-
-      conda install bioconda::scarap
-
+      conda install -c conda-forge -c bioconda bioconda::scarap
 
 ### Pip 
 
@@ -32,15 +31,15 @@ First make sure that MAFFT and MMseqs2 are properly installed. Then install SCAR
 
 You can also install SCARAP manually by cloning it and installing the following dependencies: 
 
-* [Python3](https://www.python.org/) version >= 3.6.7 and < 3.13
-* Python packages:
-    * [biopython](https://biopython.org/) version >= 1.67
-    * [ete3](http://etetoolkit.org/) version >= 3.1.1
-    * [numpy](https://numpy.org/) version >=1.16.5
-    * [scipy](https://www.scipy.org/) version >= 1.4.1
-    * [pandas](https://pandas.pydata.org/) version >= 1.5.3
+* [Python3](https://www.python.org/) version >= 3.8, < 3.13
+* Python packages (see pyproject.toml file for versions):
+    * [biopython](https://biopython.org/)
+    * [ete3](http://etetoolkit.org/)
+    * [numpy](https://numpy.org/)
+    * [scipy](https://www.scipy.org/)
+    * [pandas](https://pandas.pydata.org/)
 * [MAFFT](https://mafft.cbrc.jp/alignment/software/) version >= 7.407
-* [MMseqs2](https://github.com/soedinglab/MMseqs2) release 11, 12 or 13
+* [MMseqs2](https://github.com/soedinglab/MMseqs2) version >= 11
 
 ## Quick start
 
