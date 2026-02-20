@@ -17,10 +17,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.8"
+          - python-version: "3.9"
             os: ubuntu-22.04
             env-file: "test/environment_min.yml"
-          - python-version: "3.12"
+          - python-version: "3.14"
             os: ubuntu-24.04
             env-file: "test/environment_max.yml"
 
