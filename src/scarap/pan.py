@@ -163,7 +163,7 @@ def split_pan(pan, tree):
     Args:
         pan (DataFrame): A gene table with at least the columns reprf and 
             orthogroup.
-        tree: An ete3 tree (= the root node of a tree)
+        tree: An ete4 tree (= the root node of a tree)
         
     Returns:
         [pan1, pan2, tree1, tree2]
@@ -197,7 +197,7 @@ def lowest_cn_roots(tree, pan):
     """Determine the set of lowest copy-number roots.
     
     Args:
-        tree: ete3 tree object where the leaf names correspond to the values of
+        tree: ete4 tree object where the leaf names correspond to the values of
             the reprf column in pan.
         pan (DataFrame): Table with at least the columns reprf and genome.
         
@@ -796,7 +796,7 @@ def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps,
             columns gene, genome and orthogroup. 
         sequences (list): A list with one SeqRecord object per row in pan, in 
             the same order. 
-        tree: An ete3 tree object. 
+        tree: An ete4 tree object. 
         finclin (bool): Should ficlin be used to pick representatives?
         min_reps (int): The minimum number of representatives to use. 
         max_reps (int): The maximum number of representatives to use. 
