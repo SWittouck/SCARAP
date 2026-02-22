@@ -5,9 +5,9 @@ channels:
 dependencies:
   - mafft=7.526
   - bioconda::mmseqs2=18.8cc5c
-  - python=3.12 # maximum allowed by ete v3
+  - python=3.14  
   - biopython=1.86
-  - ete3=3.1.3 # ete v4 not compatible
+  - conda-forge::ete4=4.3.0 
   - numpy=2.4.2
   - scipy=1.17.0
   - pandas=3.0.1

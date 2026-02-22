@@ -7,7 +7,7 @@ import sys
 
 from Bio import AlignIO, Align
 from copy import copy
-from ete3 import Tree
+from ete4 import Tree
 from concurrent.futures import ProcessPoolExecutor
 from scipy import cluster
 
@@ -105,8 +105,9 @@ def update_seedmatrix(seedmatrix, sequences, dout_tmp, threads):
     
     # give warning if some sequences don't align to their cluster seed
     ids_to_seed = np.amax(seedmatrix, 1)
-    if np.any(ids_to_seed == 0):
-        logging.warning("ficlin: one or more sequences do not align to any "
+    seeds_not_aligned = np.count_nonzero(ids_to_seed == 0)
+    if seeds_not_aligned:
+        logging.warning(f"ficlin: {seeds_not_aligned} sequences do not align to any "
             "seed")
     
     # remove temporary output folder
@@ -162,7 +163,7 @@ def split_pan(pan, tree):
     Args:
         pan (DataFrame): A gene table with at least the columns reprf and 
             orthogroup.
-        tree: An ete3 tree (= the root node of a tree)
+        tree: An ete4 tree (= the root node of a tree)
         
     Returns:
         [pan1, pan2, tree1, tree2]
@@ -170,16 +171,18 @@ def split_pan(pan, tree):
     
     # midpoint root the tree
     midoutgr = tree.get_midpoint_outgroup()
+    if tree.root.dist:
+        tree.root.dist = None
+    
     if midoutgr != tree:
         tree.set_outgroup(midoutgr) 
-        
     # split tree at root
     tree1 = tree.children[0].copy()
     tree2 = tree.children[1].copy()
     
     # split pan
-    reps_subfam1 = tree1.get_leaf_names()
-    reps_subfam2 = tree2.get_leaf_names()
+    reps_subfam1 = tree1.leaf_names()
+    reps_subfam2 = tree2.leaf_names()
     pan1 = pan[pan["rep"].isin(reps_subfam1)].copy()
     pan2 = pan[pan["rep"].isin(reps_subfam2)].copy()
     
@@ -194,7 +197,7 @@ def lowest_cn_roots(tree, pan):
     """Determine the set of lowest copy-number roots.
     
     Args:
-        tree: ete3 tree object where the leaf names correspond to the values of
+        tree: ete4 tree object where the leaf names correspond to the values of
             the reprf column in pan.
         pan (DataFrame): Table with at least the columns reprf and genome.
         
@@ -213,7 +216,7 @@ def lowest_cn_roots(tree, pan):
     min_av_cn = 100000000
     
     # loop over all nodes except the root
-    for node in tree.iter_descendants():
+    for node in tree.descendants():
         # initialize empty genome lists for partition 1 and 2
         genomes1 = []
         genomes2 = []
@@ -299,7 +302,7 @@ def correct_root(root, tree, pan):
     min_av_cn = 100000000
     
     # loop over all nodes except the root
-    for node in tree.iter_descendants():
+    for node in tree.descendants():
         genomes1, genomes2 = partition_genomes(reprfs_genomes, node)
         overlap = set(genomes1) & set(genomes2) # intersection
         # if genomes that overlap in the midpoint bipartition do not all
@@ -429,11 +432,12 @@ def split_family_T_nl(pan, sequences, threads, dio_tmp):
     run_mafft(f"{dio_tmp}/seqs.fasta", f"{dio_tmp}/seqs.aln", threads)
     run_iqtree(f"{dio_tmp}/seqs.aln", f"{dio_tmp}/tree", threads, 
         ["-m", "LG+F+G4"])
-    tree = Tree(f"{dio_tmp}/tree/tree.treefile")
+    with open(f"{dio_tmp}/tree/tree.treefile", "r") as ftree:
+        tree = Tree(ftree)
     midoutgr = tree.get_midpoint_outgroup()
-    genes_subfam1 = midoutgr.get_leaf_names()
+    genes_subfam1 = midoutgr.leaf_names()
     midoutgr.detach()
-    genes_subfam2 = tree.get_leaf_names()
+    genes_subfam2 = tree.leaf_names()
     pan1 = pan.loc[genes_subfam1].copy()
     pan2 = pan.loc[genes_subfam2].copy()
     family = pan.orthogroup.tolist()[0]
@@ -558,8 +562,8 @@ def split_family_FT(pan, sequences, tree, ficlin, min_reps, max_reps,
             threads, ["--amino"])
         run_iqtree(f"{dio_tmp}/repseqs.aln", f"{dio_tmp}/tree", threads, 
             ["-m", "LG"])
-        tree = Tree(f"{dio_tmp}/tree/tree.treefile")
-    
+        with open(f"{dio_tmp}/tree/tree.treefile", "r") as ftree:
+            tree = Tree(ftree)
     # split pan based on midpoint root
     pan1, pan2, tree1, tree2 = split_pan(pan, tree)
     sequences1 = [s for s in sequences if s.id in pan1.index]
@@ -792,7 +796,7 @@ def split_family_recursive_FT(pan, sequences, tree, ficlin, min_reps,
             columns gene, genome and orthogroup. 
         sequences (list): A list with one SeqRecord object per row in pan, in 
             the same order. 
-        tree: An ete3 tree object. 
+        tree: An ete4 tree object. 
         finclin (bool): Should ficlin be used to pick representatives?
         min_reps (int): The minimum number of representatives to use. 
         max_reps (int): The maximum number of representatives to use. 

@@ -58,6 +58,8 @@ def run_pan_withchecks(args):
         check_infile(args.species)
 
     logging.info("checking dependencies")
+    if args.method in ["T-nl","FT"]:
+        check_tool("iqtree")
     if args.method in ["O-B", "O-D"]:
         check_tool("orthofinder")
     elif args.method == "S":

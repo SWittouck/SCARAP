@@ -34,7 +34,7 @@ You can also install SCARAP manually by cloning it and installing the following 
 * [Python3](https://www.python.org/) version >= 3.8, < 3.13
 * Python packages (see pyproject.toml file for versions):
     * [biopython](https://biopython.org/)
-    * [ete3](http://etetoolkit.org/)
+    * [ete4](http://etetoolkit.org/)
     * [numpy](https://numpy.org/)
     * [scipy](https://www.scipy.org/)
     * [pandas](https://pandas.pydata.org/)
