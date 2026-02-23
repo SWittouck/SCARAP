@@ -70,6 +70,12 @@ def run_pan_withchecks(args):
 
     args = process_reps(args)
 
+    if args.species is not None and args.speciesmode:
+        logging.warning(
+            "species mode was requested but a species file was also given; " \
+            "in hierarchical mode, species mode will be used for the species-" \
+            "level pangenomes and default mode for the pseudopangenome")
+
     run_pan(args)
 
 def run_build_withchecks(args):

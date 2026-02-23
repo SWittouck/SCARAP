@@ -51,9 +51,11 @@ def run_pan_nonhier(args):
         write_tsv(pangenome, pangenomefout)
         
     else:
-      
+
         logging.info(f"pangenome will be constructed with the {args.method} "
             "strategy")
+        if args.speciesmode:
+            logging.info("pangenome will be inferred in species mode")
         logging.info(f"for alignments of more than {args.max_align} sequences, "
             f"{args.min_reps} to {args.max_reps} representative sequences will "
             "be used")
@@ -87,7 +89,7 @@ def run_pan_hier(args):
         max_align = args.max_align,
         max_reps = args.max_reps,
         min_reps = args.min_reps,
-        speciesmode = args.speciesmode
+        speciesmode = True
     )
     
     logging.info("PHASE 1: inferring species-level pangenomes")
@@ -103,7 +105,7 @@ def run_pan_hier(args):
         faapathsfio = os.path.join(dout, "faapaths.txt")
         write_lines(faapaths_sub, faapathsfio)
         run_pan_nonhier(Namespace(faa_files = faapathsfio, outfolder = dout,
-            speciesmode = True, **nonhier_args))
+            **nonhier_args))
         shutil.move(os.path.join(dout, "pangenome.tsv"), speciespanfio)
         shutil.rmtree(dout)
     
@@ -123,6 +125,7 @@ def run_pan_hier(args):
     logging.info("PHASE 3: inferring pseudopangenome")
     pseudogenomes = pseudogenomes.rename(columns = {"species": "orthogroup"})
     gather_orthogroup_sequences(pseudogenomes, faapaths, pseudogenomesdio)
+    nonhier_args["speciesmode"] = False
     run_pan_nonhier(Namespace(faa_files = pseudogenomesdio, 
         outfolder = pseudopandio, **nonhier_args))
     shutil.move(os.path.join(pseudopandio, "pangenome.tsv"), pseudopanfio)
