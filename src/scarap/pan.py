@@ -958,9 +958,10 @@ def infer_superfamilies(faafins, dout, speciesmode, threads):
     # create preclusters with mmseqs cluster module (includes mmseqs linclust)
     logging.info("creating preclusters")
     min_seq_id = "0.7" if speciesmode else "0.2"
+    min_overlap = "0.8" if speciesmode else "0.5"
     run_mmseqs(["cluster", f"{dout}/sequenceDB/db", f"{dout}/preclusterDB/db",
-        f"{dout}/tmp", "--max-seqs", "1000000", "-c", "0.5", "--cov-mode", "0",
-        "-e", "inf", "--min-seq-id", min_seq_id, "--cluster-mode", "0"],
+        f"{dout}/tmp", "--max-seqs", "1000000", "-c", min_overlap, "--cov-mode", 
+        "0", "-e", "inf", "--min-seq-id", min_seq_id, "--cluster-mode", "0"],
         f"{dout}/logs/cluster.log", 
         skip_if_exists = f"{dout}/preclusterDB/db.index", threads = threads)
     # why --full-header option? --> to avoid MMseqs2 extracting the
