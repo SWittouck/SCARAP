@@ -13,4 +13,4 @@ dependencies:
   - pandas=3.0.1
   - pip
   - pip:
-    - ..
+    - --editable ..
