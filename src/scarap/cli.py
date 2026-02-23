@@ -25,7 +25,8 @@ def main():
     logging.basicConfig(
         level = logging.INFO,
         format = '[%(asctime)s] %(levelname)s: %(message)s',
-        datefmt = '%d/%m %H:%M:%S'
+        datefmt = '%d/%m %H:%M:%S',
+        force = True
     )
     logging.info("welcome to SCARAP")
 
